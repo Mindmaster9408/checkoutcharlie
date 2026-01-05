@@ -3,28 +3,31 @@
 ## Files Included
 
 - **index.html** - Landing page / app launcher
-- **pos-v2.html** - Latest version of POS system (recommended)
-- **pos-test.html** - Test version of POS system
-
-## How to Use
-
-1. Copy this entire `POS_App` folder to your new app location
-2. Open `index.html` in a web browser to launch the POS system
-3. Or directly open `pos-v2.html` for the latest version
+- **pos-v2.html** - Modern POS interface with barcode scanning support
 
 ## Features
 
-- Point of Sale interface
-- Product management
-- Sales processing
-- Receipt generation
-- Transaction history
+- Modern, responsive POS interface
+- Product catalog with category filtering
+- Barcode/product search functionality
+- Shopping cart with quantity controls
+- Multiple payment methods (Cash, Card, EFT)
+- Till session management
+- Real-time stock validation
+- VAT calculation (15%)
+- Sales tracking
+
+## Backend Required
+
+This application requires the Node.js backend server to function:
+- Run `npm start` from the root directory
+- Access at http://localhost:3000
 
 ## Notes
 
-- This is a standalone app that can run independently
-- No backend server required for basic functionality
-- All files are self-contained HTML with inline CSS and JavaScript
+- Connects to backend API at http://localhost:3000/api
+- Requires authentication (demo/demo123)
+- Till session must be open to process sales
 
 ---
 
