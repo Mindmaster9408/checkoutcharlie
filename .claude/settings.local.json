@@ -5,7 +5,12 @@
       "Bash(npm install:*)",
       "Bash(npm run init-db:*)",
       "Bash(npm start)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git config:*)",
+      "Bash(curl:*)",
+      "Bash(timeout 3 curl:*)",
+      "Bash(del:*)"
     ]
   }
 }

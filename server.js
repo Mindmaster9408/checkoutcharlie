@@ -20,7 +20,7 @@ app.use('/api/pos', posRoutes);
 
 // Serve the main POS application
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'POS_App', 'pos-test.html'));
+  res.sendFile(path.join(__dirname, 'POS_App', 'pos-v2.html'));
 });
 
 // Error handling middleware

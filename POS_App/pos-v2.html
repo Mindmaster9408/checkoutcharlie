@@ -488,20 +488,10 @@
                     <div class="payment-methods">
                         <button class="payment-btn selected" onclick="selectPayment('CASH')">💵 Cash</button>
                         <button class="payment-btn" onclick="selectPayment('CARD')">💳 Card</button>
-                        <button class="payment-btn" onclick="selectPayment('ACCOUNT')">📋 Account</button>
+                        <button class="payment-btn" onclick="selectPayment('EFT')">🏦 EFT</button>
                     </div>
-                    <div id="cashTenderedSection" style="margin-bottom: 15px;">
-                        <label style="font-weight: 600; margin-bottom: 5px; display: block;">Cash Tendered</label>
-                        <input type="number" id="cashTendered" step="0.01" placeholder="0.00" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 18px; font-weight: bold;">
-                        <div id="changeAmount" style="margin-top: 10px; font-size: 18px; font-weight: bold; color: #28a745;"></div>
-                    </div>
-                    <div id="customerSection" style="margin-bottom: 15px; display: none;">
-                        <label style="font-weight: 600; margin-bottom: 5px; display: block;">Customer (Required for Account)</label>
-                        <select id="customerSelect" style="width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px;">
-                            <option value="">Select Customer...</option>
-                        </select>
-                        <button onclick="showAddCustomer()" style="width: 100%; margin-top: 10px; background: #6c757d; padding: 10px;">+ Add New Customer</button>
-                    </div>
+                    <button class="checkout-btn" id="checkoutBtn" onclick="checkout()">Complete Sale</button>
+                    <button class="clear-cart-btn" onclick="clearCart()">Clear Cart</button>
                 </div>
             </div>
         </div>
@@ -556,14 +546,7 @@
         }
 
         async function generateBarcodes() {
-            try {
-                await fetch(`${API_URL}/pos/products/generate-barcodes-bulk`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-            } catch (error) {
-                console.error('Barcode generation error:', error);
-            }
+            // Barcode generation not needed for basic version
         }
 
         async function loadProducts() {
@@ -659,22 +642,14 @@
         });
 
         async function searchByBarcode(barcode) {
-            try {
-                const response = await fetch(`${API_URL}/pos/products/barcode/${barcode}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                const result = await response.json();
-
-                if (result.success && result.product) {
-                    addToCart(result.product);
-                    document.getElementById('barcodeInput').value = '';
-                    showNotification(`Added: ${result.product.product_name}`, 'success');
-                } else {
-                    showNotification('Product not found', 'error');
-                }
-            } catch (error) {
-                showNotification('Barcode search failed', 'error');
+            // Search by product code as barcode alternative
+            const product = products.find(p => p.product_code === barcode);
+            if (product) {
+                addToCart(product);
+                document.getElementById('barcodeInput').value = '';
+                showNotification(`Added: ${product.product_name}`, 'success');
+            } else {
+                showNotification('Product not found', 'error');
             }
         }
 
@@ -817,105 +792,14 @@
                 btn.classList.remove('selected');
             });
             event.target.classList.add('selected');
-
-            // Show/hide cash tendered section
-            const cashSection = document.getElementById('cashTenderedSection');
-            const customerSection = document.getElementById('customerSection');
-            
-            if (method === 'CASH') {
-                cashSection.style.display = 'block';
-                customerSection.style.display = 'none';
-            } else if (method === 'ACCOUNT') {
-                cashSection.style.display = 'none';
-                customerSection.style.display = 'block';
-                loadCustomers();
-            } else {
-                cashSection.style.display = 'none';
-                customerSection.style.display = 'none';
-            }
         }
-
-        // Calculate change
-        document.addEventListener('DOMContentLoaded', function() {
-            const cashInput = document.getElementById('cashTendered');
-            if (cashInput) {
-                cashInput.addEventListener('input', function() {
-                    const tendered = parseFloat(this.value) || 0;
-                    const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 1.15;
-                    const change = tendered - total;
-                    
-                    const changeDiv = document.getElementById('changeAmount');
-                    if (change >= 0 && tendered > 0) {
-                        changeDiv.textContent = `Change: R ${change.toFixed(2)}`;
-                        changeDiv.style.color = '#28a745';
-                    } else if (tendered > 0) {
-                        changeDiv.textContent = `Short: R ${Math.abs(change).toFixed(2)}`;
-                        changeDiv.style.color = '#dc3545';
-                    } else {
-                        changeDiv.textContent = '';
-                    }
-                });
-            }
-        });
-
-        async function loadCustomers() {
-            try {
-                const response = await fetch(`${API_URL}/pos/customers`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                const result = await response.json();
-                const select = document.getElementById('customerSelect');
-                select.innerHTML = '<option value="">Select Customer...</option>';
-                
-                if (result.customers) {
-                    result.customers.forEach(c => {
-                        const option = document.createElement('option');
-                        option.value = c.id;
-                        option.textContent = c.client_name;
-                        select.appendChild(option);
-                    });
-                }
-            } catch (error) {
-                console.error('Error loading customers:', error);
-            }
-        }
-
-        function showAddCustomer() {
-            const name = prompt('Customer Name:');
-            if (name) {
-                const phone = prompt('Phone Number (optional):');
-                const email = prompt('Email (optional):');
-                addCustomer(name, phone, email);
-            }
-        }
-async function checkout() {
-            if (cart.length === 0 || !currentSession) return;
-
-            // Validation for account sales
-            if (selectedPayment === 'ACCOUNT') {
-                const customerId = document.getElementById('customerSelect').value;
-                if (!customerId) {
-                    showNotification('Please select a customer for account sales', 'error');
-                    return;
-                }
-            }
-
-            // Validation for cash
-            if (selectedPayment === 'CASH') {
-                const tendered = parseFloat(document.getElementById('cashTendered').value) || 0;
-                const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 1.15;
-                if (tendered < total) {
-                    showNotification('Insufficient cash tendered', 'error');
-                    return;
-                }
+        async function checkout() {
+            if (cart.length === 0 || !currentSession) {
+                showNotification('Cart is empty or no session open', 'error');
+                return;
             }
 
             try {
-                const customerId = selectedPayment === 'ACCOUNT' 
-                    ? document.getElementById('customerSelect').value 
-                    : null;
-
                 const response = await fetch(`${API_URL}/pos/sales`, {
                     method: 'POST',
                     headers: {
@@ -924,7 +808,6 @@ async function checkout() {
                     },
                     body: JSON.stringify({
                         tillSessionId: currentSession.id,
-                        customerId: customerId,
                         items: cart.map(item => ({
                             productId: item.productId,
                             quantity: item.quantity
@@ -935,97 +818,23 @@ async function checkout() {
 
                 const result = await response.json();
 
-                if (result.success) {
-                    showNotification(`Sale completed! #${result.saleNumber}`, 'success');
-                    
-                    // Auto-print receipt
-                    setTimeout(() => {
-                        printReceipt(result.saleId);
-                    }, 500);
-                    
+                if (response.ok) {
+                    showNotification(`Sale completed! #${result.saleNumber} - Total: R ${result.totalAmount.toFixed(2)}`, 'success');
+
                     cart = [];
                     updateCart();
-                    document.getElementById('cashTendered').value = '';
-                    document.getElementById('changeAmount').textContent = '';
                     await loadProducts();
                     document.getElementById('barcodeInput').focus();
                 } else {
-                    showNotification(result.error, 'error');
+                    showNotification(result.error || 'Checkout failed', 'error');
                 }
             } catch (error) {
-                showNotification('Checkout failed', 'error');
-            }
-        }
-
-        async function printReceipt(saleId) {
-            try {
-                const response = await fetch(`${API_URL}/pos/sales/${saleId}/receipt`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                const html = await response.text();
-                
-                const receiptWindow = window.open('', '_blank', 'width=400,height=600');
-                receiptWindow.document.write(html);
-                receiptWindow.document.close();
-                
-                setTimeout(() => {
-                    receiptWindow.print();
-                }, 500);
-            } catch (error) {
-                showNotification('Error loading receipt', 'error');
+                showNotification('Checkout failed: ' + error.message, 'error');
             }
         }
         async function addCustomer(name, phone, email) {
-            try {
-                const response = await fetch(`${API_URL}/pos/customers`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        client_name: name,
-                        phone: phone || null,
-                        email: email || null,
-                        client_type: 'customer'
-                    })
-                });
-
-                const result = await response.json();
-                if (result.success) {
-                    showNotification('Customer added!', 'success');
-                    loadCustomers();
-                } else {
-                    showNotification(result.error, 'error');
-                }
-            } catch (error) {
-                showNotification('Error adding customer', 'error');
-            }
+            showNotification('Customer management not available in this version', 'error');
         }
-
-                const result = await response.json();
-
-                if (result.success) {
-                    showNotification(`Sale completed! #${result.saleNumber}`, 'success');
-                    
-                    // Ask if user wants to print receipt
-                    setTimeout(() => {
-                        if (confirm('Print receipt?')) {
-                            printReceipt(result.saleId);
-                        }
-                    }, 500);
-                    
-                    cart = [];
-                    updateCart();
-                    await loadProducts();
-                    document.getElementById('barcodeInput').focus();
-                } else {
-                    showNotification(result.error, 'error');
-                }
-              (error) 
-                showNotification('Checkout failed', 'error');
-            
 
         async function checkSession() {
             try {
@@ -1065,11 +874,13 @@ async function checkout() {
                             });
 
                             const result = await response.json();
-                            if (result.success) {
-                                showNotification('Session closed', 'success');
+                            if (response.ok) {
+                                showNotification(`Session closed. Variance: R ${result.variance.toFixed(2)}`, 'success');
                                 currentSession = null;
                                 document.getElementById('sessionStatus').textContent = 'No Session';
                                 document.getElementById('checkoutBtn').disabled = true;
+                            } else {
+                                showNotification(result.error || 'Error closing session', 'error');
                             }
                         } catch (error) {
                             showNotification('Error closing session', 'error');
@@ -1103,39 +914,16 @@ async function checkout() {
                         });
 
                         const result = await response.json();
-                        if (result.success) {
+                        if (response.ok) {
                             showNotification('Session opened', 'success');
                             await checkSession();
+                        } else {
+                            showNotification(result.error || 'Error opening session', 'error');
                         }
                     } catch (error) {
                         showNotification('Error opening session', 'error');
                     }
                 }
-            }
-        }
-
-        async function printTillClosing() {
-            if (!currentSession) {
-                showNotification('No active session', 'error');
-                return;
-            }
-            
-            try {
-                const response = await fetch(`${API_URL}/pos/sessions/${currentSession.id}/closing-receipt`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                const html = await response.text();
-                
-                const receiptWindow = window.open('', '_blank', 'width=400,height=600');
-                receiptWindow.document.write(html);
-                receiptWindow.document.close();
-                
-                setTimeout(() => {
-                    receiptWindow.print();
-                }, 500);
-            } catch (error) {
-                showNotification('Error loading receipt', 'error');
             }
         }
         function showNotification(message, type) {
