@@ -5,6 +5,9 @@ require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
 const posRoutes = require('./routes/pos');
+const seanAiRoutes = require('./routes/sean-ai');
+const auditRoutes = require('./routes/audit');
+const vatRoutes = require('./routes/vat');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,10 +20,13 @@ app.use(express.static('POS_App'));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/pos', posRoutes);
+app.use('/api/sean', seanAiRoutes);
+app.use('/api/audit', auditRoutes);
+app.use('/api/vat', vatRoutes);
 
 // Serve the main POS application
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'POS_App', 'pos-v2.html'));
+  res.sendFile(path.join(__dirname, 'POS_App', 'checkout-charlie.html'));
 });
 
 // Error handling middleware

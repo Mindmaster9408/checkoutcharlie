@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Humble POS System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            overflow: hidden;
+        }
+
+        /* Top Navigation Bar */
+        .top-nav {
+            background: #4CAF50;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .nav-brand {
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            margin-right: 30px;
+        }
+        .nav-tabs {
+            display: flex;
+            gap: 5px;
+            flex: 1;
+        }
+        .nav-tab {
+            padding: 8px 20px;
+            color: white;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .nav-tab:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        .nav-tab.active {
+            background: white;
+            color: #4CAF50;
+            border-color: white;
+        }
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            color: white;
+            font-size: 13px;
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Login Screen */
+        .login-screen {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        }
+        .login-box {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            width: 400px;
+        }
+        .login-box h1 {
+            color: #4CAF50;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        /* Main Container */
+        .main-container {
+            display: none;
+            height: calc(100vh - 45px);
+        }
+
+        /* Settings Layout */
+        .settings-layout {
+            display: flex;
+            height: 100%;
+        }
+        .settings-sidebar {
+            width: 250px;
+            background: white;
+            border-right: 1px solid #e0e0e0;
+            overflow-y: auto;
+        }
+        .settings-menu-item {
+            padding: 15px 20px;
+            cursor: pointer;
+            border-left: 3px solid transparent;
+            transition: all 0.2s;
+        }
+        .settings-menu-item:hover {
+            background: #f5f5f5;
+        }
+        .settings-menu-item.active {
+            background: #4CAF50;
+            color: white;
+            border-left-color: #2e7d32;
+        }
+        .settings-content {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+            background: #fafafa;
+        }
+
+        /* Products Page */
+        .products-header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .search-box {
+            position: relative;
+            flex: 1;
+            max-width: 400px;
+        }
+        .search-box input {
+            width: 100%;
+            padding: 10px 40px 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .search-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+        }
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #4CAF50;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #45a049;
+        }
+        .btn-secondary {
+            background: white;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+        .btn-secondary:hover {
+            background: #f5f5f5;
+        }
+
+        /* Products Table */
+        .products-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .products-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .products-table thead {
+            background: #f8f9fa;
+        }
+        .products-table th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #e0e0e0;
+            font-size: 13px;
+        }
+        .products-table td {
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+        .products-table tbody tr:hover {
+            background: #f9f9f9;
+            cursor: pointer;
+        }
+        .product-count {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+            padding: 0 15px;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+            font-size: 14px;
+        }
+        input[type="text"],
+        input[type="password"],
+        input[type="number"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 2px rgba(76,175,80,0.1);
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal {
+            background: white;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-header h2 {
+            margin: 0;
+            color: #333;
+        }
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+        .modal-body {
+            padding: 20px;
+        }
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: normal;
+            cursor: pointer;
+        }
+
+        .error-text {
+            color: #d32f2f;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .required {
+            color: #d32f2f;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-screen">
+        <div class="login-box">
+            <h1>POS System Login</h1>
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="loginUsername" value="demo" autofocus>
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="loginPassword" value="demo123">
+            </div>
+            <button class="btn btn-primary" style="width: 100%;" onclick="login()">Login</button>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="mainApp" class="main-container">
+        <!-- Top Navigation -->
+        <div class="top-nav">
+            <div class="nav-brand">humble</div>
+            <div class="nav-tabs">
+                <button class="nav-tab" onclick="showTab('till')">Till</button>
+                <button class="nav-tab" onclick="showTab('stock')">Stock</button>
+                <button class="nav-tab" onclick="showTab('reports')">Reports</button>
+                <button class="nav-tab" onclick="showTab('cashup')">Cash Up</button>
+                <button class="nav-tab active" onclick="showTab('settings')">Settings</button>
+                <button class="nav-tab" onclick="showTab('refer')">Refer</button>
+            </div>
+            <div class="nav-right">
+                <div class="user-info">
+                    <span id="userName"></span>
+                </div>
+                <span id="storeName">Turkstra Bakery (Pty) Ltd</span>
+            </div>
+        </div>
+
+        <!-- Settings Layout -->
+        <div class="settings-layout">
+            <div class="settings-sidebar">
+                <div class="settings-menu-item" onclick="showSettings('general')">General</div>
+                <div class="settings-menu-item" onclick="showSettings('receipt-printers')">Receipt Printers</div>
+                <div class="settings-menu-item active" onclick="showSettings('products')">Products</div>
+                <div class="settings-menu-item" onclick="showSettings('categories')">Categories</div>
+                <div class="settings-menu-item" onclick="showSettings('brands')">Brands</div>
+                <div class="settings-menu-item" onclick="showSettings('users')">Users</div>
+                <div class="settings-menu-item" onclick="showSettings('customers')">Customers</div>
+                <div class="settings-menu-item" onclick="showSettings('suppliers')">Suppliers</div>
+                <div class="settings-menu-item" onclick="showSettings('sites')">Sites</div>
+            </div>
+
+            <div class="settings-content">
+                <!-- Products Section -->
+                <div id="productsSection">
+                    <div class="products-header">
+                        <div class="search-box">
+                            <input type="text" id="productSearch" placeholder="Search..." onkeyup="searchProducts()">
+                            <span class="search-icon">🔍</span>
+                        </div>
+                        <div class="header-actions">
+                            <button class="btn btn-secondary" onclick="exportProducts()">Export Products</button>
+                            <button class="btn btn-secondary" onclick="importProducts()">Import Products</button>
+                            <button class="btn btn-primary" onclick="showAddProduct()">Add Product</button>
+                            <button class="btn btn-secondary">Price Lists</button>
+                        </div>
+                    </div>
+
+                    <div class="products-container">
+                        <div class="product-count" id="productCount">1671 Products</div>
+                        <table class="products-table">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Description</th>
+                                    <th>Category</th>
+                                    <th>Price</th>
+                                    <th>Stock</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productsTableBody">
+                                <!-- Products will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Product Modal -->
+    <div id="productModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add Product</h2>
+                <button class="close-btn" onclick="closeProductModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Code <span class="required">*</span></label>
+                    <input type="text" id="productCode" required>
+                    <div class="error-text" id="codeError" style="display: none;">This field is required</div>
+                </div>
+
+                <div class="form-group">
+                    <label>Description <span class="required">*</span></label>
+                    <input type="text" id="productDescription" required>
+                    <div class="error-text" id="descError" style="display: none;">This field is required</div>
+                </div>
+
+                <div class="form-group">
+                    <label>Searchable</label>
+                    <input type="text" id="productSearchable">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="productCategory">
+                            <option value="">Default Category</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Brand</label>
+                        <select id="productBrand">
+                            <option value="">Default Brand</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Unit</label>
+                    <input type="text" id="productUnit" placeholder="e.g., ea, kg">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tax Rate</label>
+                        <select id="productTaxRate">
+                            <option value="0">No VAT (0%)</option>
+                            <option value="15" selected>VAT (15%)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Cost</label>
+                        <input type="number" id="productCost" step="0.01" value="0.00">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Gross Profit</label>
+                        <input type="number" id="productGrossProfit" step="0.0001" value="0.0000">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Inclusive Price</label>
+                        <input type="number" id="productPrice" step="0.01" value="0.00">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Gross Profit %</label>
+                        <input type="number" id="productGrossProfitPercent" step="0.01" value="0.00">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="productActive" checked>
+                        Active
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeProductModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveProduct()">Save Product</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+        let token = null;
+        let currentUser = null;
+        let products = [];
+        let editingProductId = null;
+
+        async function login() {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    token = result.token;
+                    currentUser = result.user;
+                    document.getElementById('userName').textContent = currentUser.fullName;
+                    document.getElementById('loginScreen').style.display = 'none';
+                    document.getElementById('mainApp').style.display = 'block';
+
+                    await loadProducts();
+                } else {
+                    alert(result.error);
+                }
+            } catch (error) {
+                alert('Login failed: ' + error.message);
+            }
+        }
+
+        async function loadProducts() {
+            try {
+                const response = await fetch(`${API_URL}/pos/products`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const result = await response.json();
+                products = result.products;
+                displayProducts(products);
+            } catch (error) {
+                console.error('Error loading products:', error);
+            }
+        }
+
+        function displayProducts(productsToShow) {
+            const tbody = document.getElementById('productsTableBody');
+            tbody.innerHTML = '';
+
+            document.getElementById('productCount').textContent = `${productsToShow.length} Products`;
+
+            productsToShow.forEach(product => {
+                const row = document.createElement('tr');
+                row.onclick = () => editProduct(product);
+                row.innerHTML = `
+                    <td>${product.product_code}</td>
+                    <td>${product.product_name}</td>
+                    <td>${product.category || '-'}</td>
+                    <td>R ${parseFloat(product.unit_price).toFixed(2)}</td>
+                    <td>${product.stock_quantity}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function searchProducts() {
+            const query = document.getElementById('productSearch').value.toLowerCase();
+            const filtered = products.filter(p =>
+                p.product_name.toLowerCase().includes(query) ||
+                p.product_code.toLowerCase().includes(query)
+            );
+            displayProducts(filtered);
+        }
+
+        function showAddProduct() {
+            editingProductId = null;
+            document.getElementById('modalTitle').textContent = 'Add Product';
+            document.getElementById('productCode').value = '';
+            document.getElementById('productDescription').value = '';
+            document.getElementById('productSearchable').value = '';
+            document.getElementById('productCategory').value = '';
+            document.getElementById('productBrand').value = '';
+            document.getElementById('productUnit').value = 'ea';
+            document.getElementById('productTaxRate').value = '15';
+            document.getElementById('productCost').value = '0.00';
+            document.getElementById('productPrice').value = '0.00';
+            document.getElementById('productGrossProfit').value = '0.0000';
+            document.getElementById('productGrossProfitPercent').value = '0.00';
+            document.getElementById('productActive').checked = true;
+
+            document.getElementById('productModal').style.display = 'flex';
+        }
+
+        function editProduct(product) {
+            editingProductId = product.id;
+            document.getElementById('modalTitle').textContent = 'Edit Product';
+            document.getElementById('productCode').value = product.product_code;
+            document.getElementById('productDescription').value = product.product_name;
+            document.getElementById('productSearchable').value = product.product_name;
+            document.getElementById('productCategory').value = product.category || '';
+            document.getElementById('productUnit').value = 'ea';
+            document.getElementById('productTaxRate').value = '15';
+            document.getElementById('productCost').value = parseFloat(product.cost_price || 0).toFixed(2);
+            document.getElementById('productPrice').value = parseFloat(product.unit_price).toFixed(2);
+            document.getElementById('productActive').checked = product.is_active == 1;
+
+            document.getElementById('productModal').style.display = 'flex';
+        }
+
+        function closeProductModal() {
+            document.getElementById('productModal').style.display = 'none';
+            document.getElementById('codeError').style.display = 'none';
+            document.getElementById('descError').style.display = 'none';
+        }
+
+        async function saveProduct() {
+            const code = document.getElementById('productCode').value.trim();
+            const description = document.getElementById('productDescription').value.trim();
+
+            // Validation
+            let hasError = false;
+            if (!code) {
+                document.getElementById('codeError').style.display = 'block';
+                hasError = true;
+            } else {
+                document.getElementById('codeError').style.display = 'none';
+            }
+
+            if (!description) {
+                document.getElementById('descError').style.display = 'block';
+                hasError = true;
+            } else {
+                document.getElementById('descError').style.display = 'none';
+            }
+
+            if (hasError) return;
+
+            const productData = {
+                product_code: code,
+                product_name: description,
+                category: document.getElementById('productCategory').value || 'General',
+                unit_price: parseFloat(document.getElementById('productPrice').value) || 0,
+                cost_price: parseFloat(document.getElementById('productCost').value) || 0,
+                is_active: document.getElementById('productActive').checked ? 1 : 0
+            };
+
+            try {
+                let response;
+                if (editingProductId) {
+                    // Update existing product - you'll need to implement this endpoint
+                    alert('Product update functionality needs to be implemented in the backend');
+                } else {
+                    // Create new product - you'll need to implement this endpoint
+                    alert('Product create functionality needs to be implemented in the backend');
+                }
+
+                closeProductModal();
+                await loadProducts();
+            } catch (error) {
+                alert('Error saving product: ' + error.message);
+            }
+        }
+
+        function showTab(tab) {
+            // Remove active class from all tabs
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+
+            // For now, we'll just show an alert for non-implemented tabs
+            if (tab !== 'settings') {
+                alert(`${tab.charAt(0).toUpperCase() + tab.slice(1)} section - To be implemented`);
+            }
+        }
+
+        function showSettings(section) {
+            // Remove active class from all menu items
+            document.querySelectorAll('.settings-menu-item').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            // Add active class to clicked item
+            event.target.classList.add('active');
+
+            // For now, only products is implemented
+            if (section !== 'products') {
+                alert(`${section} section - To be implemented`);
+            }
+        }
+
+        function exportProducts() {
+            alert('Export Products - To be implemented');
+        }
+
+        function importProducts() {
+            alert('Import Products - To be implemented');
+        }
+
+        // Calculate profit when cost or price changes
+        document.addEventListener('DOMContentLoaded', function() {
+            const costInput = document.getElementById('productCost');
+            const priceInput = document.getElementById('productPrice');
+            const profitInput = document.getElementById('productGrossProfit');
+            const profitPercentInput = document.getElementById('productGrossProfitPercent');
+
+            function calculateProfit() {
+                const cost = parseFloat(costInput.value) || 0;
+                const price = parseFloat(priceInput.value) || 0;
+                const profit = price - cost;
+                const profitPercent = cost > 0 ? ((profit / cost) * 100) : 0;
+
+                profitInput.value = profit.toFixed(4);
+                profitPercentInput.value = profitPercent.toFixed(2);
+            }
+
+            if (costInput && priceInput) {
+                costInput.addEventListener('input', calculateProfit);
+                priceInput.addEventListener('input', calculateProfit);
+            }
+        });
+    </script>
+</body>
+</html>
