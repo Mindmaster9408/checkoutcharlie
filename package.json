@@ -8,7 +8,8 @@
     "dev": "nodemon server.js",
     "init-db": "node init-database.js",
     "init-sean": "node init-sean-ai.js",
-    "setup": "node init-database.js && node init-sean-ai.js"
+    "init-barcodes": "node init-barcodes.js",
+    "setup": "node init-database.js && node init-sean-ai.js && node init-barcodes.js"
   },
   "keywords": ["pos", "point-of-sale", "retail"],
   "author": "",

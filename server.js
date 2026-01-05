@@ -8,6 +8,7 @@ const posRoutes = require('./routes/pos');
 const seanAiRoutes = require('./routes/sean-ai');
 const auditRoutes = require('./routes/audit');
 const vatRoutes = require('./routes/vat');
+const barcodeRoutes = require('./routes/barcode');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,6 +24,7 @@ app.use('/api/pos', posRoutes);
 app.use('/api/sean', seanAiRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/vat', vatRoutes);
+app.use('/api/barcode', barcodeRoutes);
 
 // Serve the main POS application
 app.get('/', (req, res) => {

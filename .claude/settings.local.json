@@ -11,7 +11,8 @@
       "Bash(curl:*)",
       "Bash(timeout 3 curl:*)",
       "Bash(del:*)",
-      "Bash(npm run init-sean:*)"
+      "Bash(npm run init-sean:*)",
+      "Bash(npm run init-barcodes:*)"
     ]
   }
 }
