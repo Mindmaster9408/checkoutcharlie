@@ -80,7 +80,12 @@ router.post('/sessions/open', (req, res) => {
 // Close till session
 router.post('/sessions/:id/close', (req, res) => {
   const { id } = req.params;
-  const { closingBalance, notes } = req.body;
+  const { closingBalance, closing_balance, expectedBalance, expected_balance, variance, notes } = req.body;
+
+  // Support both camelCase and snake_case
+  const closingBal = closingBalance || closing_balance;
+  const expectedBal = expectedBalance || expected_balance;
+  const varianceVal = variance;
 
   // Get session and calculate expected balance
   db.get(`
@@ -103,24 +108,26 @@ router.post('/sessions/:id/close', (req, res) => {
       return res.status(400).json({ error: 'Session is already closed' });
     }
 
-    const expectedBalance = parseFloat(session.opening_balance) + parseFloat(session.total_sales);
-    const variance = parseFloat(closingBalance) - expectedBalance;
+    const calculatedExpected = parseFloat(session.opening_balance) + parseFloat(session.total_sales);
+    const finalExpected = expectedBal || calculatedExpected;
+    const finalVariance = varianceVal !== undefined ? varianceVal : (parseFloat(closingBal) - finalExpected);
 
     db.run(
       `UPDATE till_sessions
        SET closing_balance = ?, expected_balance = ?, variance = ?,
            status = 'closed', closed_at = CURRENT_TIMESTAMP, notes = ?
        WHERE id = ?`,
-      [closingBalance, expectedBalance, variance, notes, id],
+      [closingBal, finalExpected, finalVariance, notes, id],
       (err) => {
         if (err) {
           return res.status(500).json({ error: 'Failed to close session' });
         }
 
         res.json({
-          closingBalance,
-          expectedBalance,
-          variance,
+          success: true,
+          closingBalance: closingBal,
+          expectedBalance: finalExpected,
+          variance: finalVariance,
           totalSales: session.total_sales
         });
       }
@@ -136,6 +143,120 @@ router.get('/products', (req, res) => {
     }
     res.json({ products });
   });
+});
+
+// Create product
+router.post('/products', (req, res) => {
+  const {
+    product_code,
+    product_name,
+    category,
+    unit_price,
+    cost_price,
+    is_active,
+    barcode,
+    requires_vat,
+    vat_rate
+  } = req.body;
+
+  if (!product_code || !product_name || unit_price === undefined) {
+    return res.status(400).json({ error: 'Product code, name, and price are required' });
+  }
+
+  db.run(
+    `INSERT INTO products (product_code, product_name, category, unit_price, cost_price, is_active, barcode, requires_vat, vat_rate)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      product_code,
+      product_name,
+      category || null,
+      parseFloat(unit_price),
+      parseFloat(cost_price) || 0,
+      is_active ? 1 : 0,
+      barcode || null,
+      requires_vat ? 1 : 0,
+      parseFloat(vat_rate) || 15
+    ],
+    function(err) {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to create product: ' + err.message });
+      }
+
+      db.get('SELECT * FROM products WHERE id = ?', [this.lastID], (err, product) => {
+        if (err) {
+          return res.status(500).json({ error: 'Database error' });
+        }
+        res.json({ product, message: 'Product created successfully' });
+      });
+    }
+  );
+});
+
+// Update product
+router.put('/products/:id', (req, res) => {
+  const { id } = req.params;
+  const {
+    product_code,
+    product_name,
+    category,
+    unit_price,
+    cost_price,
+    is_active,
+    barcode,
+    requires_vat,
+    vat_rate
+  } = req.body;
+
+  if (!product_code || !product_name || unit_price === undefined) {
+    return res.status(400).json({ error: 'Product code, name, and price are required' });
+  }
+
+  db.run(
+    `UPDATE products 
+     SET product_code = ?, product_name = ?, category = ?, unit_price = ?, cost_price = ?, 
+         is_active = ?, barcode = ?, requires_vat = ?, vat_rate = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+    [
+      product_code,
+      product_name,
+      category || null,
+      parseFloat(unit_price),
+      parseFloat(cost_price) || 0,
+      is_active ? 1 : 0,
+      barcode || null,
+      requires_vat ? 1 : 0,
+      parseFloat(vat_rate) || 15,
+      id
+    ],
+    function(err) {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to update product' });
+      }
+
+      db.get('SELECT * FROM products WHERE id = ?', [id], (err, product) => {
+        if (err) {
+          return res.status(500).json({ error: 'Database error' });
+        }
+        res.json({ product, message: 'Product updated successfully' });
+      });
+    }
+  );
+});
+
+// Delete product (soft delete)
+router.delete('/products/:id', (req, res) => {
+  const { id } = req.params;
+
+  db.run(
+    'UPDATE products SET is_active = 0 WHERE id = ?',
+    [id],
+    function(err) {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to delete product' });
+      }
+      res.json({ message: 'Product deleted successfully' });
+    }
+  );
 });
 
 // Create sale

@@ -527,6 +527,117 @@
             padding: 0 15px;
         }
 
+        /* Customers Table */
+        .customers-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+        .customers-table thead {
+            background: #f5f5f5;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .customers-table th {
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            font-size: 13px;
+        }
+        .customers-table td {
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+        .customers-table tbody tr:hover {
+            background: #f9f9f9;
+        }
+        .customer-count {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+            padding: 0 15px;
+        }
+        .customers-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 20px;
+        }
+        .customers-container {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .btn-sm {
+            padding: 6px 12px !important;
+            font-size: 12px !important;
+            margin-right: 5px;
+        }
+        .btn-danger {
+            background: #dc3545 !important;
+        }
+        .btn-danger:hover {
+            background: #c82333 !important;
+        }
+
+        /* Cash Up Styles */
+        .cash-row {
+            display: grid;
+            grid-template-columns: 100px 1fr 100px;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+        .cash-row label {
+            font-weight: 500;
+            margin: 0;
+        }
+        .cash-row input {
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .cash-row .total {
+            text-align: right;
+            font-weight: 600;
+            color: #333;
+        }
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .summary-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .summary-card h4 {
+            margin: 0 0 8px 0;
+            color: #666;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .summary-card .value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        .variance-positive {
+            color: #28a745 !important;
+        }
+        .variance-negative {
+            color: #dc3545 !important;
+        }
+
         /* Form Elements */
         .form-group {
             margin-bottom: 15px;
@@ -676,12 +787,12 @@
         <div class="top-nav">
             <div class="nav-brand">Checkout Charlie</div>
             <div class="nav-tabs">
-                <button class="nav-tab active" onclick="showTab('till')">Till</button>
-                <button class="nav-tab" onclick="showTab('stock')">Stock</button>
-                <button class="nav-tab" onclick="showTab('reports')">Reports</button>
-                <button class="nav-tab" onclick="showTab('cashup')">Cash Up</button>
-                <button class="nav-tab" onclick="showTab('settings')">Settings</button>
-                <button class="nav-tab" onclick="showTab('refer')">Refer</button>
+                <button class="nav-tab active" onclick="showTab('till', event)">Till</button>
+                <button class="nav-tab" onclick="showTab('stock', event)">Stock</button>
+                <button class="nav-tab" onclick="showTab('reports', event)">Reports</button>
+                <button class="nav-tab" onclick="showTab('cashup', event)">Cash Up</button>
+                <button class="nav-tab" onclick="showTab('settings', event)">Settings</button>
+                <button class="nav-tab" onclick="showTab('refer', event)">Refer</button>
             </div>
             <div class="nav-right">
                 <div class="user-info">
@@ -750,7 +861,7 @@
                         <div class="payment-methods">
                             <button class="payment-btn selected" onclick="selectPayment('CASH')">💵 Cash</button>
                             <button class="payment-btn" onclick="selectPayment('CARD')">💳 Card</button>
-                            <button class="payment-btn" onclick="selectPayment('EFT')">🏦 EFT</button>
+                            <button class="payment-btn" onclick="selectPayment('ACCOUNT')">👤 Account</button>
                         </div>
                         <button class="checkout-btn" id="checkoutBtn" onclick="checkout()" disabled>Complete Sale</button>
                         <button class="clear-cart-btn" onclick="clearCart()">Clear Cart</button>
@@ -759,19 +870,222 @@
             </div>
         </div>
 
+        <!-- Reports Layout -->
+        <div id="reportsLayout" class="settings-layout" style="display: none;">
+            <div class="settings-grid">
+                <div class="settings-sidebar">
+                    <h3 style="padding: 15px; border-bottom: 1px solid #ddd; margin: 0;">Sales Reports</h3>
+                    <div class="settings-menu-item" onclick="showReport('gross-profit', event)">Gross Profit</div>
+                    <div class="settings-menu-item" onclick="showReport('gross-profit-by-person', event)">Gross Profit by Person</div>
+                    <div class="settings-menu-item" onclick="showReport('gross-profit-by-product', event)">Gross Profit by Product</div>
+                    <div class="settings-menu-item" onclick="showReport('daily-summary', event)">Sales Daily Summary</div>
+                    <div class="settings-menu-item" onclick="showReport('audit-trail', event)">Sales Audit Trail</div>
+                    
+                    <h3 style="padding: 15px 15px 10px; border-top: 1px solid #ddd; margin: 10px 0 0; color: #667eea;">VAT Reports</h3>
+                    <div class="settings-menu-item" onclick="showReport('vat-detail', event)">VAT Detail</div>
+                    <div class="settings-menu-item" onclick="showReport('vat-summary', event)">VAT Summary</div>
+                    
+                    <h3 style="padding: 15px 15px 10px; border-top: 1px solid #ddd; margin: 10px 0 0; color: #667eea;">Integrations</h3>
+                    <div class="settings-menu-item" onclick="showReport('inventory-sync', event)">Inventory Sync</div>
+                    <div class="settings-menu-item" onclick="showReport('accounting-sync', event)">Accounting Sync</div>
+                </div>
+
+                <div class="settings-content">
+                    <!-- Report Header with Date Range -->
+                    <div style="margin-bottom: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px;">
+                        <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                            <div>
+                                <label style="font-size: 12px; color: #666;">Start Date</label>
+                                <input type="date" id="reportStartDate" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div>
+                                <label style="font-size: 12px; color: #666;">End Date</label>
+                                <input type="date" id="reportEndDate" style="padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <button class="btn btn-primary" onclick="loadCurrentReport()" style="align-self: flex-end;">Generate Report</button>
+                            <button class="btn btn-secondary" onclick="exportCurrentReport()" style="align-self: flex-end;">📥 Export CSV</button>
+                        </div>
+                    </div>
+
+                    <!-- Report Container -->
+                    <div id="reportContainer" style="background: white; border-radius: 8px; padding: 20px;">
+                        <p style="text-align: center; color: #999;">Select a report to view</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cash Up Layout -->
+        <div id="cashUpLayout" style="display: none; padding: 20px;">
+            <div style="max-width: 1200px; margin: 0 auto;">
+                <h1 style="margin-bottom: 30px; color: #667eea;">💰 Cash Up</h1>
+
+                <!-- Current Session Info -->
+                <div id="sessionInfo" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 10px; margin-bottom: 30px;">
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;">
+                        <div>
+                            <div style="font-size: 13px; opacity: 0.9;">Till Session</div>
+                            <div id="cashUpSessionId" style="font-size: 20px; font-weight: bold;">-</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 13px; opacity: 0.9;">Opened By</div>
+                            <div id="cashUpUser" style="font-size: 20px; font-weight: bold;">-</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 13px; opacity: 0.9;">Opening Balance</div>
+                            <div id="cashUpOpeningBalance" style="font-size: 20px; font-weight: bold;">R 0.00</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 13px; opacity: 0.9;">Session Started</div>
+                            <div id="cashUpOpenedAt" style="font-size: 20px; font-weight: bold;">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Session Summary -->
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 30px;">
+                    <div style="background: #e8f5e9; padding: 20px; border-radius: 10px; border-left: 5px solid #4caf50;">
+                        <div style="font-size: 14px; color: #666; margin-bottom: 5px;">Total Sales</div>
+                        <div id="cashUpTotalSales" style="font-size: 32px; font-weight: bold; color: #2e7d32;">R 0.00</div>
+                        <div id="cashUpSalesCount" style="font-size: 13px; color: #666; margin-top: 5px;">0 transactions</div>
+                    </div>
+                    <div style="background: #fff3e0; padding: 20px; border-radius: 10px; border-left: 5px solid #ff9800;">
+                        <div style="font-size: 14px; color: #666; margin-bottom: 5px;">Expected Cash</div>
+                        <div id="cashUpExpectedCash" style="font-size: 32px; font-weight: bold; color: #e65100;">R 0.00</div>
+                        <div style="font-size: 13px; color: #666; margin-top: 5px;">Opening + Sales</div>
+                    </div>
+                    <div style="background: #e3f2fd; padding: 20px; border-radius: 10px; border-left: 5px solid #2196f3;">
+                        <div style="font-size: 14px; color: #666; margin-bottom: 5px;">Payment Breakdown</div>
+                        <div id="cashUpPaymentBreakdown" style="font-size: 14px; margin-top: 10px;">
+                            <div style="display: flex; justify-content: space-between; margin: 5px 0;"><span>Cash:</span><span id="cashSales">R 0.00</span></div>
+                            <div style="display: flex; justify-content: space-between; margin: 5px 0;"><span>Card:</span><span id="cardSales">R 0.00</span></div>
+                            <div style="display: flex; justify-content: space-between; margin: 5px 0;"><span>Account:</span><span id="accountSales">R 0.00</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cash Counter -->
+                <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 30px;">
+                    <h2 style="margin-bottom: 20px; color: #667eea;">💵 Count Cash in Till</h2>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                        <!-- Notes -->
+                        <div>
+                            <label style="font-weight: bold; display: block; margin-bottom: 10px;">Notes</label>
+                            <div style="display: grid; gap: 10px;">
+                                <div class="cash-row">
+                                    <span>R 200</span>
+                                    <input type="number" id="note200" min="0" value="0" oninput="calculateCashTotal()">
+                                    <span id="total200">R 0.00</span>
+                                </div>
+                                <div class="cash-row">
+                                    <span>R 100</span>
+                                    <input type="number" id="note100" min="0" value="0" oninput="calculateCashTotal()">
+                                    <span id="total100">R 0.00</span>
+                                </div>
+                                <div class="cash-row">
+                                    <span>R 50</span>
+                                    <input type="number" id="note50" min="0" value="0" oninput="calculateCashTotal()">
+                                    <span id="total50">R 0.00</span>
+                                </div>
+                                <div class="cash-row">
+                                    <span>R 20</span>
+                                    <input type="number" id="note20" min="0" value="0" oninput="calculateCashTotal()">
+                                    <span id="total20">R 0.00</span>
+                                </div>
+                                <div class="cash-row">
+                                    <span>R 10</span>
+                                    <input type="number" id="note10" min="0" value="0" oninput="calculateCashTotal()">
+                                    <span id="total10">R 0.00</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Coins -->
+                        <div>
+                            <label style="font-weight: bold; display: block; margin-bottom: 10px;">Coins</label>
+                            <div style="display: grid; gap: 10px;">
+                                <div class="cash-row">
+                                    <span>R 5</span>
+                                    <input type="number" id="coin5" min="0" value="0" oninput="calculateCashTotal()">
+                                    <span id="total5">R 0.00</span>
+                                </div>
+                                <div class="cash-row">
+                                    <span>R 2</span>
+                                    <input type="number" id="coin2" min="0" value="0" oninput="calculateCashTotal()">
+                                    <span id="total2">R 0.00</span>
+                                </div>
+                                <div class="cash-row">
+                                    <span>R 1</span>
+                                    <input type="number" id="coin1" min="0" value="0" oninput="calculateCashTotal()">
+                                    <span id="total1">R 0.00</span>
+                                </div>
+                                <div class="cash-row">
+                                    <span>50c</span>
+                                    <input type="number" id="coin050" min="0" value="0" oninput="calculateCashTotal()">
+                                    <span id="total050">R 0.00</span>
+                                </div>
+                                <div class="cash-row">
+                                    <span>20c</span>
+                                    <input type="number" id="coin020" min="0" value="0" oninput="calculateCashTotal()">
+                                    <span id="total020">R 0.00</span>
+                                </div>
+                                <div class="cash-row">
+                                    <span>10c</span>
+                                    <input type="number" id="coin010" min="0" value="0" oninput="calculateCashTotal()">
+                                    <span id="total010">R 0.00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Total Counted -->
+                    <div style="margin-top: 25px; padding: 20px; background: #f5f5f5; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 16px; font-weight: bold; color: #666;">Total Cash Counted:</div>
+                            <div id="totalCountedDisplay" style="font-size: 36px; font-weight: bold; color: #667eea;">R 0.00</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 16px; font-weight: bold; color: #666;">Expected:</div>
+                            <div id="expectedCashAmount" style="font-size: 36px; font-weight: bold; color: #999;">R 0.00</div>
+                        </div>
+                    </div>
+
+                    <!-- Variance Display -->
+                    <div id="varianceInfo" style="margin-top: 20px; padding: 20px; border-radius: 8px; display: none; background: #fff8e1; border: 2px solid #ffc107;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span id="varianceLabel" style="font-size: 18px; font-weight: bold;">Variance:</span>
+                            <span id="varianceAmount" style="font-size: 32px; font-weight: bold;"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Notes -->
+                <div style="background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 30px;">
+                    <h3 style="margin-bottom: 15px;">Notes</h3>
+                    <textarea id="cashUpNotes" rows="4" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-family: inherit; resize: vertical;" placeholder="Add any notes about this cash up session (e.g., reasons for variance, missing receipts, etc.)"></textarea>
+                </div>
+
+                <!-- Actions -->
+                <div style="display: flex; gap: 15px; justify-content: flex-end;">
+                    <button class="btn btn-secondary" onclick="showTab('till', event)" style="padding: 15px 30px; font-size: 16px;">Cancel</button>
+                    <button class="btn btn-primary" onclick="completeCashUp()" style="padding: 15px 30px; font-size: 16px; background: #4caf50; border: none;">✓ Complete Cash Up & Close Till</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Settings Layout -->
         <div id="settingsLayout" class="settings-layout">
             <div class="settings-grid">
                 <div class="settings-sidebar">
-                    <div class="settings-menu-item" onclick="showSettings('general')">General</div>
-                    <div class="settings-menu-item" onclick="showSettings('receipt-printers')">Receipt Printers</div>
-                    <div class="settings-menu-item active" onclick="showSettings('products')">Products</div>
-                    <div class="settings-menu-item" onclick="showSettings('categories')">Categories</div>
-                    <div class="settings-menu-item" onclick="showSettings('brands')">Brands</div>
-                    <div class="settings-menu-item" onclick="showSettings('users')">Users</div>
-                    <div class="settings-menu-item" onclick="showSettings('customers')">Customers</div>
-                    <div class="settings-menu-item" onclick="showSettings('suppliers')">Suppliers</div>
-                    <div class="settings-menu-item" onclick="showSettings('sites')">Sites</div>
+                    <div class="settings-menu-item" onclick="showSettings('general', event)">General</div>
+                    <div class="settings-menu-item" onclick="showSettings('receipt-printers', event)">Receipt Printers</div>
+                    <div class="settings-menu-item active" onclick="showSettings('products', event)">Products</div>
+                    <div class="settings-menu-item" onclick="showSettings('categories', event)">Categories</div>
+                    <div class="settings-menu-item" onclick="showSettings('brands', event)">Brands</div>
+                    <div class="settings-menu-item" onclick="showSettings('users', event)">Users</div>
+                    <div class="settings-menu-item" onclick="showSettings('customers', event)">Customers</div>
+                    <div class="settings-menu-item" onclick="showSettings('suppliers', event)">Suppliers</div>
+                    <div class="settings-menu-item" onclick="showSettings('sites', event)">Sites</div>
                 </div>
 
                 <div class="settings-content">
@@ -808,6 +1122,43 @@
                             </table>
                         </div>
                     </div>
+
+                    <!-- Customers Section -->
+                    <div id="customersSection" style="display: none;">
+                        <div class="customers-header">
+                            <div class="search-box">
+                                <input type="text" id="customerSearch" placeholder="Search customers..." onkeyup="searchCustomers()">
+                                <span class="search-icon">🔍</span>
+                            </div>
+                            <div class="header-actions">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" id="activeCustomersOnly" checked onchange="toggleActiveOnly()">
+                                    Active customers only
+                                </label>
+                                <button class="btn btn-secondary" onclick="exportCustomers()">Export Customers</button>
+                                <button class="btn btn-primary" onclick="showAddCustomer()">Add Customer</button>
+                            </div>
+                        </div>
+
+                        <div class="customers-container">
+                            <div class="customer-count" id="customerCount">0 Customers</div>
+                            <table class="customers-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Contact Number</th>
+                                        <th>Email</th>
+                                        <th>Company</th>
+                                        <th>Type</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="customersTableBody">
+                                    <!-- Customers will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -821,6 +1172,29 @@
                 <button class="close-btn" onclick="closeProductModal()">&times;</button>
             </div>
             <div class="modal-body">
+                <!-- Barcode Section -->
+                <div class="form-group">
+                    <label>Barcode</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="productBarcode" placeholder="Scan or enter barcode">
+                        <button class="btn btn-secondary" onclick="scanBarcode()" style="width: auto; padding: 10px 15px;">📷 Scan</button>
+                        <button class="btn btn-secondary" onclick="generateBarcode()" style="width: auto; padding: 10px 15px;">🏷️ Generate</button>
+                    </div>
+                    <div style="font-size: 12px; color: #666; margin-top: 5px;" id="barcodeStatus"></div>
+                </div>
+
+                <!-- Sean AI Assistant -->
+                <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #667eea;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong style="color: #667eea;">🤖 Ask Sean AI</strong>
+                            <div style="font-size: 12px; color: #666; margin-top: 3px;">Let Sean help fill product details from barcode or description</div>
+                        </div>
+                        <button class="btn btn-primary" onclick="askSean()" style="width: auto; padding: 10px 20px;">Ask Sean</button>
+                    </div>
+                    <div id="seanResponse" style="margin-top: 10px; display: none; background: white; padding: 10px; border-radius: 5px; font-size: 13px;"></div>
+                </div>
+
                 <div class="form-group">
                     <label>Code <span class="required">*</span></label>
                     <input type="text" id="productCode" required>
@@ -861,10 +1235,17 @@
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Tax Rate</label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="productRequiresVat" checked onchange="toggleVatRate()">
+                            Requires VAT
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label>VAT Rate (%)</label>
                         <select id="productTaxRate">
-                            <option value="0">No VAT (0%)</option>
-                            <option value="15" selected>VAT (15%)</option>
+                            <option value="0">0%</option>
+                            <option value="15" selected>15%</option>
                         </select>
                     </div>
                 </div>
@@ -907,6 +1288,104 @@
         </div>
     </div>
 
+    <!-- Add/Edit Customer Modal -->
+    <div id="customerModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Add Customer</h2>
+                <button class="modal-close" onclick="closeCustomerModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Name <span class="required">*</span></label>
+                    <input type="text" id="customerName" required>
+                    <div class="error-text" id="nameError" style="display: none;">This field is required</div>
+                </div>
+
+                <div class="form-group">
+                    <label>Contact Person</label>
+                    <input type="text" id="customerContactPerson">
+                </div>
+
+                <div class="form-group">
+                    <label>Contact Number</label>
+                    <input type="tel" id="customerContactNumber">
+                </div>
+
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="customerEmail">
+                </div>
+
+                <div class="form-group">
+                    <label>Address Line 1</label>
+                    <input type="text" id="customerAddress1">
+                </div>
+
+                <div class="form-group">
+                    <label>Address Line 2</label>
+                    <input type="text" id="customerAddress2">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Suburb</label>
+                        <input type="text" id="customerSuburb">
+                    </div>
+                    <div class="form-group">
+                        <label>City</label>
+                        <input type="text" id="customerCity">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Province</label>
+                        <input type="text" id="customerProvince">
+                    </div>
+                    <div class="form-group">
+                        <label>Postal Code</label>
+                        <input type="text" id="customerPostalCode">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Tax Reference</label>
+                    <input type="text" id="customerTaxReference">
+                </div>
+
+                <div class="form-group">
+                    <label>Company</label>
+                    <input type="text" id="customerCompany">
+                </div>
+
+                <div class="form-group">
+                    <label>Customer Type</label>
+                    <select id="customerType">
+                        <option value="Cash Sale Customer">Cash Sale Customer</option>
+                        <option value="Account Customer">Account Customer</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Custom Field</label>
+                    <input type="text" id="customerCustomField">
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="customerActive" checked>
+                        Active Customer
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeCustomerModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveCustomer()">Save</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Notification -->
     <div id="notification" class="notification"></div>
 
@@ -938,6 +1417,7 @@
 
                 if (response.ok) {
                     token = result.token;
+                    localStorage.setItem('token', token);
                     currentUser = result.user;
                     document.getElementById('userName').textContent = currentUser.fullName;
                     document.getElementById('loginScreen').style.display = 'none';
@@ -1067,6 +1547,215 @@
                 console.error('Error loading products:', error);
             }
         }
+
+        // Cash Up Functions
+        let currentSessionData = null;
+
+        async function loadCashUpSession() {
+            try {
+                // Get current session
+                const sessionResponse = await fetch(`${API_URL}/pos/sessions/current`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const sessionResult = await sessionResponse.json();
+
+                if (!sessionResult.session) {
+                    showNotification('No active till session found', 'error');
+                    return;
+                }
+
+                currentSessionData = sessionResult.session;
+
+                // Get sales for this session
+                const salesResponse = await fetch(`${API_URL}/pos/sales?session_id=${currentSessionData.id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const salesResult = await salesResponse.json();
+
+                // Calculate totals
+                let totalSales = 0;
+                let cashSales = 0;
+                let cardSales = 0;
+                let accountSales = 0;
+
+                salesResult.sales.forEach(sale => {
+                    totalSales += sale.total_amount;
+                    if (sale.payment_method === 'CASH') cashSales += sale.total_amount;
+                    if (sale.payment_method === 'CARD') cardSales += sale.total_amount;
+                    if (sale.payment_method === 'ACCOUNT') accountSales += sale.total_amount;
+                });
+
+                // Update UI
+                document.getElementById('sessionTillId').textContent = `Till ${currentSessionData.till_id}`;
+                document.getElementById('sessionUser').textContent = currentUser;
+                document.getElementById('sessionOpeningBalance').textContent = `R${currentSessionData.opening_balance.toFixed(2)}`;
+                
+                const openTime = new Date(currentSessionData.opened_at);
+                const duration = Math.floor((Date.now() - openTime.getTime()) / 60000);
+                document.getElementById('sessionDuration').textContent = `${duration} minutes`;
+
+                document.getElementById('totalSalesAmount').textContent = `R${totalSales.toFixed(2)}`;
+                
+                const expectedCash = parseFloat(currentSessionData.opening_balance) + cashSales;
+                document.getElementById('expectedCashAmount').textContent = `R${expectedCash.toFixed(2)}`;
+
+                document.getElementById('cashSalesBreakdown').textContent = `R${cashSales.toFixed(2)}`;
+                document.getElementById('cardSalesBreakdown').textContent = `R${cardSales.toFixed(2)}`;
+                document.getElementById('accountSalesBreakdown').textContent = `R${accountSales.toFixed(2)}`;
+
+                // Reset denomination inputs
+                resetDenominations();
+                
+            } catch (error) {
+                console.error('Error loading cash up session:', error);
+                showNotification('Error loading session data', 'error');
+            }
+        }
+
+        function resetDenominations() {
+            document.getElementById('note200').value = '0';
+            document.getElementById('note100').value = '0';
+            document.getElementById('note50').value = '0';
+            document.getElementById('note20').value = '0';
+            document.getElementById('note10').value = '0';
+            document.getElementById('coin5').value = '0';
+            document.getElementById('coin2').value = '0';
+            document.getElementById('coin1').value = '0';
+            document.getElementById('coin050').value = '0';
+            document.getElementById('coin020').value = '0';
+            document.getElementById('coin010').value = '0';
+            
+            document.getElementById('total200').textContent = 'R0.00';
+            document.getElementById('total100').textContent = 'R0.00';
+            document.getElementById('total50').textContent = 'R0.00';
+            document.getElementById('total20').textContent = 'R0.00';
+            document.getElementById('total10').textContent = 'R0.00';
+            document.getElementById('total5').textContent = 'R0.00';
+            document.getElementById('total2').textContent = 'R0.00';
+            document.getElementById('total1').textContent = 'R0.00';
+            document.getElementById('total050').textContent = 'R0.00';
+            document.getElementById('total020').textContent = 'R0.00';
+            document.getElementById('total010').textContent = 'R0.00';
+            
+            document.getElementById('totalCountedDisplay').textContent = 'R0.00';
+            document.getElementById('varianceInfo').style.display = 'none';
+        }
+
+        function calculateCashTotal() {
+            const denominations = [
+                { id: 'note200', value: 200 },
+                { id: 'note100', value: 100 },
+                { id: 'note50', value: 50 },
+                { id: 'note20', value: 20 },
+                { id: 'note10', value: 10 },
+                { id: 'coin5', value: 5 },
+                { id: 'coin2', value: 2 },
+                { id: 'coin1', value: 1 },
+                { id: 'coin050', value: 0.50 },
+                { id: 'coin020', value: 0.20 },
+                { id: 'coin010', value: 0.10 }
+            ];
+
+            let totalCounted = 0;
+
+            denominations.forEach(denom => {
+                const qty = parseInt(document.getElementById(denom.id).value) || 0;
+                const total = qty * denom.value;
+                totalCounted += total;
+                
+                // Update individual total
+                const totalId = 'total' + denom.id.replace('note', '').replace('coin', '');
+                document.getElementById(totalId).textContent = `R${total.toFixed(2)}`;
+            });
+
+            // Update total counted
+            document.getElementById('totalCountedDisplay').textContent = `R${totalCounted.toFixed(2)}`;
+
+            // Calculate variance
+            const expectedText = document.getElementById('expectedCashAmount').textContent;
+            const expectedCash = parseFloat(expectedText.replace('R', ''));
+            const variance = totalCounted - expectedCash;
+
+            // Show variance
+            const varianceDiv = document.getElementById('varianceInfo');
+            const varianceAmount = document.getElementById('varianceAmount');
+            
+            varianceDiv.style.display = 'block';
+            varianceAmount.textContent = `R${Math.abs(variance).toFixed(2)}`;
+            
+            if (variance > 0) {
+                varianceAmount.className = 'variance-positive';
+                document.getElementById('varianceLabel').textContent = 'Over:';
+            } else if (variance < 0) {
+                varianceAmount.className = 'variance-negative';
+                document.getElementById('varianceLabel').textContent = 'Short:';
+            } else {
+                varianceAmount.className = '';
+                document.getElementById('varianceLabel').textContent = 'Balanced:';
+            }
+
+            return totalCounted;
+        }
+
+        async function completeCashUp() {
+            if (!currentSessionData) {
+                showNotification('No active session', 'error');
+                return;
+            }
+
+            const totalCounted = calculateCashTotal();
+            const notes = document.getElementById('cashUpNotes').value;
+
+            const expectedText = document.getElementById('expectedCashAmount').textContent;
+            const expectedCash = parseFloat(expectedText.replace('R', ''));
+            const variance = totalCounted - expectedCash;
+
+            const confirmed = confirm(
+                `Complete cash up and close till?\n\n` +
+                `Counted: R${totalCounted.toFixed(2)}\n` +
+                `Expected: R${expectedCash.toFixed(2)}\n` +
+                `Variance: R${variance.toFixed(2)}\n\n` +
+                `This will close the till session.`
+            );
+
+            if (!confirmed) return;
+
+            try {
+                const response = await fetch(`${API_URL}/pos/sessions/${currentSessionData.id}/close`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        closing_balance: totalCounted,
+                        expected_balance: expectedCash,
+                        variance: variance,
+                        notes: notes
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification('Till session closed successfully', 'success');
+                    currentSessionData = null;
+                    showTab('till');
+                } else {
+                    showNotification(result.error || 'Error closing session', 'error');
+                }
+            } catch (error) {
+                console.error('Error completing cash up:', error);
+                showNotification('Error closing session', 'error');
+            }
+        }
+
+        function cancelCashUp() {
+            if (confirm('Cancel cash up and return to Till?')) {
+                showTab('till');
+            }
+        }
+
 
         function renderCategories() {
             const container = document.getElementById('categories');
@@ -1358,16 +2047,30 @@
             }
         }
 
-        function showTab(tab) {
+        function showTab(tab, evt) {
             currentTab = tab;
 
             // Remove active class from all tabs
             document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
+
+            // Add active class to the clicked tab if event is provided
+            if (evt && evt.target) {
+                evt.target.classList.add('active');
+            } else {
+                // If no event (called programmatically), find and activate the correct tab
+                const tabs = document.querySelectorAll('.nav-tab');
+                tabs.forEach(t => {
+                    if (t.textContent.toLowerCase().includes(tab.toLowerCase())) {
+                        t.classList.add('active');
+                    }
+                });
+            }
 
             // Hide all sections
             document.getElementById('tillInterface').style.display = 'none';
             document.getElementById('settingsLayout').style.display = 'none';
+            document.getElementById('reportsLayout').style.display = 'none';
+            document.getElementById('cashUpLayout').style.display = 'none';
 
             // Show appropriate section
             if (tab === 'till') {
@@ -1378,16 +2081,25 @@
                 }, 100);
             } else if (tab === 'settings') {
                 document.getElementById('settingsLayout').style.display = 'block';
+            } else if (tab === 'reports') {
+                document.getElementById('reportsLayout').style.display = 'block';
+                loadCurrentReport();
+            } else if (tab === 'cashup') {
+                document.getElementById('cashUpLayout').style.display = 'block';
+                loadCashUpSession();
             } else {
                 alert(`${tab.charAt(0).toUpperCase() + tab.slice(1)} section - To be implemented`);
             }
         }
 
-        function showSettings(section) {
+        function showSettings(section, evt) {
             document.querySelectorAll('.settings-menu-item').forEach(item => {
                 item.classList.remove('active');
             });
-            event.target.classList.add('active');
+
+            if (evt && evt.target) {
+                evt.target.classList.add('active');
+            }
 
             if (section !== 'products') {
                 alert(`${section} section - To be implemented`);
@@ -1409,6 +2121,10 @@
             document.getElementById('productGrossProfit').value = '0.0000';
             document.getElementById('productGrossProfitPercent').value = '0.00';
             document.getElementById('productActive').checked = true;
+            document.getElementById('productBarcode').value = '';
+            document.getElementById('productRequiresVat').checked = true;
+            document.getElementById('productTaxRate').disabled = false;
+            document.getElementById('seanResponse').innerHTML = '';
 
             document.getElementById('productModal').style.display = 'flex';
         }
@@ -1420,11 +2136,17 @@
             document.getElementById('productDescription').value = product.product_name;
             document.getElementById('productSearchable').value = product.product_name;
             document.getElementById('productCategory').value = product.category || '';
+            document.getElementById('productBrand').value = '';
             document.getElementById('productUnit').value = 'ea';
             document.getElementById('productTaxRate').value = '15';
             document.getElementById('productCost').value = parseFloat(product.cost_price || 0).toFixed(2);
             document.getElementById('productPrice').value = parseFloat(product.unit_price).toFixed(2);
             document.getElementById('productActive').checked = product.is_active == 1;
+            document.getElementById('productBarcode').value = product.barcode || '';
+            document.getElementById('productRequiresVat').checked = product.requires_vat !== 0;
+            document.getElementById('productTaxRate').value = product.vat_rate || '15';
+            document.getElementById('productTaxRate').disabled = product.requires_vat === 0;
+            document.getElementById('seanResponse').innerHTML = '';
 
             // Trigger profit calculation
             const event = new Event('input');
@@ -1442,6 +2164,7 @@
         async function saveProduct() {
             const code = document.getElementById('productCode').value.trim();
             const description = document.getElementById('productDescription').value.trim();
+            const barcode = document.getElementById('productBarcode').value.trim();
 
             // Validation
             let hasError = false;
@@ -1461,14 +2184,84 @@
 
             if (hasError) return;
 
-            // For now just show alert - backend endpoints need to be implemented
-            if (editingProductId) {
-                alert('Product update functionality needs to be implemented in the backend');
-            } else {
-                alert('Product create functionality needs to be implemented in the backend');
-            }
+            // Collect all product data
+            const productData = {
+                product_code: code,
+                product_name: description,
+                category: document.getElementById('productCategory').value,
+                unit_price: parseFloat(document.getElementById('productPrice').value),
+                cost_price: parseFloat(document.getElementById('productCost').value),
+                is_active: document.getElementById('productActive').checked ? 1 : 0,
+                barcode: barcode,
+                requires_vat: document.getElementById('productRequiresVat').checked ? 1 : 0,
+                vat_rate: parseFloat(document.getElementById('productTaxRate').value)
+            };
 
-            closeProductModal();
+            try {
+                let response;
+                if (editingProductId) {
+                    // Update existing product
+                    response = await fetch(`${API_URL}/pos/products/${editingProductId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(productData)
+                    });
+                } else {
+                    // Create new product
+                    response = await fetch(`${API_URL}/pos/products`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(productData)
+                    });
+                }
+
+                const result = await response.json();
+
+                if (result.success || result.product) {
+                    showNotification(editingProductId ? 'Product updated successfully' : 'Product created successfully', 'success');
+
+                    // Teach Sean AI about this product
+                    if (barcode) {
+                        await teachSean(barcode, productData);
+                    }
+
+                    // Reload products
+                    await loadProducts();
+                    closeProductModal();
+                } else {
+                    showNotification(result.error || 'Failed to save product', 'error');
+                }
+            } catch (error) {
+                showNotification('Error saving product: ' + error.message, 'error');
+            }
+        }
+
+        async function teachSean(barcode, productData) {
+            try {
+                await fetch(`${API_URL}/sean/learn/product`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        barcode: barcode,
+                        product_name: productData.product_name,
+                        category: productData.category,
+                        unit_of_measure: productData.unit_of_measure,
+                        vat_rate: productData.vat_rate,
+                        requires_vat: productData.requires_vat === 1
+                    })
+                });
+            } catch (error) {
+                console.error('Error teaching Sean:', error);
+            }
         }
 
         function exportProducts() {
@@ -1477,6 +2270,152 @@
 
         function importProducts() {
             alert('Import Products - To be implemented');
+        }
+
+        // Barcode Management Functions
+
+        function scanBarcode() {
+            const barcodeInput = document.getElementById('productBarcode');
+            barcodeInput.focus();
+            barcodeInput.select();
+
+            // Check if barcode exists when user enters it
+            barcodeInput.addEventListener('change', async function() {
+                const barcode = this.value.trim();
+                if (barcode) {
+                    await checkBarcodeExists(barcode);
+                }
+            }, { once: true });
+        }
+
+        async function checkBarcodeExists(barcode) {
+            try {
+                const response = await fetch(`${API_URL}/barcode/check/${barcode}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.exists && result.in_system) {
+                    showNotification(`Barcode already assigned to: ${result.product.name}`, 'error');
+                    document.getElementById('productBarcode').value = '';
+                } else if (result.sean_knows) {
+                    showNotification('Sean AI knows this barcode! Click "Ask Sean" to auto-fill details.', 'success');
+                }
+            } catch (error) {
+                console.error('Error checking barcode:', error);
+            }
+        }
+
+        async function generateBarcode() {
+            try {
+                const response = await fetch(`${API_URL}/barcode/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    document.getElementById('productBarcode').value = result.barcode;
+                    showNotification(`Generated barcode: ${result.barcode}`, 'success');
+                } else {
+                    showNotification(result.error || 'Failed to generate barcode', 'error');
+                }
+            } catch (error) {
+                showNotification('Error generating barcode: ' + error.message, 'error');
+            }
+        }
+
+        // Sean AI Functions
+
+        async function askSean() {
+            const barcode = document.getElementById('productBarcode').value.trim();
+            const description = document.getElementById('productDescription').value.trim();
+
+            if (!barcode && !description) {
+                showNotification('Please enter a barcode or description first', 'error');
+                return;
+            }
+
+            const seanResponseDiv = document.getElementById('seanResponse');
+            seanResponseDiv.innerHTML = '<p style="color: #667eea;">🤖 Sean is thinking...</p>';
+
+            try {
+                const response = await fetch(`${API_URL}/sean/assist/product`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ barcode, description })
+                });
+
+                const result = await response.json();
+
+                if (result.found || result.suggestion) {
+                    const data = result.product || result.suggestion;
+
+                    // Auto-fill form fields
+                    if (data.product_name || data.name) {
+                        document.getElementById('productDescription').value = data.product_name || data.name;
+                        document.getElementById('productSearchable').value = data.product_name || data.name;
+                    }
+                    if (data.category) {
+                        document.getElementById('productCategory').value = data.category;
+                    }
+                    if (data.unit_of_measure) {
+                        document.getElementById('productUnit').value = data.unit_of_measure;
+                    }
+                    if (data.vat_rate !== undefined) {
+                        document.getElementById('productVatRate').value = data.vat_rate;
+                        document.getElementById('productRequiresVat').checked = data.requires_vat !== false;
+                        document.getElementById('productVatRate').disabled = !data.requires_vat;
+                    }
+
+                    // Show Sean's confidence
+                    const confidence = data.confidence || data.confidence_score || 0;
+                    const confidencePercent = Math.round(confidence * 100);
+
+                    seanResponseDiv.innerHTML = `
+                        <p style="color: #4caf50; font-weight: bold;">✓ Sean found it! (${confidencePercent}% confident)</p>
+                        <p style="font-size: 12px; color: #666;">
+                            ${data.category ? `Category: ${data.category}<br>` : ''}
+                            ${data.unit_of_measure ? `Unit: ${data.unit_of_measure}<br>` : ''}
+                            ${data.vat_rate !== undefined ? `VAT: ${data.vat_rate}%` : ''}
+                        </p>
+                    `;
+
+                    showNotification('Sean auto-filled product details!', 'success');
+                } else {
+                    seanResponseDiv.innerHTML = `
+                        <p style="color: #ff9800;">Sean doesn't recognize this yet.</p>
+                        <p style="font-size: 12px; color: #666;">Fill in the details and Sean will learn for next time!</p>
+                    `;
+                }
+            } catch (error) {
+                seanResponseDiv.innerHTML = `<p style="color: #f44336;">Error: ${error.message}</p>`;
+                showNotification('Error contacting Sean AI: ' + error.message, 'error');
+            }
+        }
+
+        // VAT Management Functions
+
+        function toggleVatRate() {
+            const requiresVat = document.getElementById('productRequiresVat').checked;
+            const vatRateSelect = document.getElementById('productTaxRate');
+
+            vatRateSelect.disabled = !requiresVat;
+
+            if (!requiresVat) {
+                vatRateSelect.value = '0';
+            } else if (vatRateSelect.value === '0') {
+                vatRateSelect.value = '15';
+            }
         }
 
         function showNotification(message, type) {
@@ -1488,6 +2427,904 @@
             setTimeout(() => {
                 notification.style.display = 'none';
             }, 3000);
+        }
+
+        // Reports Functions
+        let currentReport = null;
+
+        function showReport(reportType, event) {
+            if (event) {
+                const items = document.querySelectorAll('.settings-menu-item');
+                items.forEach(item => item.classList.remove('active'));
+                event.target.classList.add('active');
+            }
+
+            currentReport = reportType;
+            loadCurrentReport();
+        }
+
+        async function loadCurrentReport() {
+            if (!currentReport) {
+                showNotification('Please select a report', 'error');
+                return;
+            }
+
+            const startDate = document.getElementById('reportStartDate').value;
+            const endDate = document.getElementById('reportEndDate').value;
+            const container = document.getElementById('reportContainer');
+
+            container.innerHTML = '<p style="text-align: center; color: #999;">Loading report...</p>';
+
+            try {
+                let url = `${API_URL}/reports/${currentReport}`;
+                const params = [];
+                if (startDate) params.push(`startDate=${startDate}`);
+                if (endDate) params.push(`endDate=${endDate}`);
+                if (params.length > 0) url += '?' + params.join('&');
+
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    renderReport(currentReport, result);
+                } else {
+                    container.innerHTML = `<p style="color: #f44336;">Error: ${result.error || 'Failed to load report'}</p>`;
+                }
+            } catch (error) {
+                console.error('Error loading report:', error);
+                container.innerHTML = `<p style="color: #f44336;">Error loading report: ${error.message}</p>`;
+            }
+        }
+
+        function renderReport(reportType, data) {
+            const container = document.getElementById('reportContainer');
+
+            switch (reportType) {
+                case 'gross-profit':
+                    renderGrossProfitReport(data, container);
+                    break;
+                case 'gross-profit-by-person':
+                    renderGrossProfitByPersonReport(data, container);
+                    break;
+                case 'gross-profit-by-product':
+                    renderGrossProfitByProductReport(data, container);
+                    break;
+                case 'daily-summary':
+                    renderDailySummaryReport(data, container);
+                    break;
+                case 'audit-trail':
+                    renderAuditTrailReport(data, container);
+                    break;
+                case 'vat-detail':
+                    renderVatDetailReport(data, container);
+                    break;
+                case 'vat-summary':
+                    renderVatSummaryReport(data, container);
+                    break;
+                case 'inventory-sync':
+                    renderInventorySyncReport(data, container);
+                    break;
+                case 'accounting-sync':
+                    renderAccountingSyncReport(data, container);
+                    break;
+                default:
+                    container.innerHTML = '<p>Unknown report type</p>';
+            }
+        }
+
+        function renderGrossProfitReport(data, container) {
+            const { sales, summary } = data;
+            let html = `
+                <h2 style="margin-bottom: 20px;">Gross Profit Report</h2>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px;">
+                    <div style="background: #e8f5e9; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Total Sales</div>
+                        <div style="font-size: 24px; font-weight: bold; color: #2e7d32;">R ${summary.totalSales.toFixed(2)}</div>
+                    </div>
+                    <div style="background: #fff3e0; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Gross Profit</div>
+                        <div style="font-size: 24px; font-weight: bold; color: #f57c00;">R ${summary.totalProfit.toFixed(2)}</div>
+                    </div>
+                    <div style="background: #f3e5f5; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Profit Margin</div>
+                        <div style="font-size: 24px; font-weight: bold; color: #7b1fa2;">${summary.profitMargin}%</div>
+                    </div>
+                    <div style="background: #e3f2fd; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Transactions</div>
+                        <div style="font-size: 24px; font-weight: bold; color: #1565c0;">${summary.transactionCount}</div>
+                    </div>
+                </div>
+                <table class="products-table">
+                    <thead>
+                        <tr>
+                            <th>Sale #</th>
+                            <th>Cashier</th>
+                            <th>Date</th>
+                            <th>Subtotal</th>
+                            <th>VAT</th>
+                            <th>Total</th>
+                            <th>Profit</th>
+                            <th>Margin %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            sales.forEach(sale => {
+                html += `
+                    <tr>
+                        <td>${sale.sale_number}</td>
+                        <td>${sale.cashier}</td>
+                        <td>${new Date(sale.created_at).toLocaleDateString()}</td>
+                        <td>R ${sale.subtotal.toFixed(2)}</td>
+                        <td>R ${sale.vat.toFixed(2)}</td>
+                        <td>R ${sale.total_amount.toFixed(2)}</td>
+                        <td>R ${(sale.gross_profit || 0).toFixed(2)}</td>
+                        <td>${sale.profit_margin || 0}%</td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        function renderGrossProfitByPersonReport(data, container) {
+            const { data: people, summary } = data;
+            let html = `
+                <h2 style="margin-bottom: 20px;">Gross Profit by Salesperson</h2>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px;">
+                    <div style="background: #e8f5e9; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Total Sales</div>
+                        <div style="font-size: 24px; font-weight: bold;">R ${summary.totalSales.toFixed(2)}</div>
+                    </div>
+                    <div style="background: #fff3e0; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Total Profit</div>
+                        <div style="font-size: 24px; font-weight: bold;">R ${summary.totalProfit.toFixed(2)}</div>
+                    </div>
+                    <div style="background: #f3e5f5; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Avg Margin</div>
+                        <div style="font-size: 24px; font-weight: bold;">${summary.profitMargin}%</div>
+                    </div>
+                    <div style="background: #e3f2fd; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Staff Count</div>
+                        <div style="font-size: 24px; font-weight: bold;">${summary.staffCount}</div>
+                    </div>
+                </div>
+                <table class="products-table">
+                    <thead>
+                        <tr>
+                            <th>Cashier</th>
+                            <th>Transactions</th>
+                            <th>Total Sales</th>
+                            <th>Total VAT</th>
+                            <th>Gross Profit</th>
+                            <th>Margin %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            people.forEach(person => {
+                html += `
+                    <tr>
+                        <td>${person.cashier}</td>
+                        <td>${person.sales_count}</td>
+                        <td>R ${person.total_sales.toFixed(2)}</td>
+                        <td>R ${person.total_vat.toFixed(2)}</td>
+                        <td>R ${person.gross_profit.toFixed(2)}</td>
+                        <td>${person.profit_margin}%</td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        function renderGrossProfitByProductReport(data, container) {
+            const { products, summary } = data;
+            let html = `
+                <h2 style="margin-bottom: 20px;">Gross Profit by Product</h2>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px;">
+                    <div style="background: #e8f5e9; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Total Revenue</div>
+                        <div style="font-size: 24px; font-weight: bold;">R ${summary.totalRevenue.toFixed(2)}</div>
+                    </div>
+                    <div style="background: #fff3e0; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Total Profit</div>
+                        <div style="font-size: 24px; font-weight: bold;">R ${summary.totalProfit.toFixed(2)}</div>
+                    </div>
+                    <div style="background: #f3e5f5; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Avg Margin</div>
+                        <div style="font-size: 24px; font-weight: bold;">${summary.profitMargin}%</div>
+                    </div>
+                    <div style="background: #e3f2fd; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Products</div>
+                        <div style="font-size: 24px; font-weight: bold;">${summary.productCount}</div>
+                    </div>
+                </div>
+                <table class="products-table">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Product Name</th>
+                            <th>Category</th>
+                            <th>Qty Sold</th>
+                            <th>Revenue</th>
+                            <th>Profit</th>
+                            <th>Margin %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            products.forEach(prod => {
+                html += `
+                    <tr>
+                        <td>${prod.product_code}</td>
+                        <td>${prod.product_name}</td>
+                        <td>${prod.category || '-'}</td>
+                        <td>${prod.quantity_sold}</td>
+                        <td>R ${prod.total_revenue.toFixed(2)}</td>
+                        <td>R ${prod.gross_profit.toFixed(2)}</td>
+                        <td>${prod.profit_margin}%</td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        function renderDailySummaryReport(data, container) {
+            const { days, summary } = data;
+            let html = `
+                <h2 style="margin-bottom: 20px;">Daily Sales Summary</h2>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px;">
+                    <div style="background: #e8f5e9; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Total Sales</div>
+                        <div style="font-size: 24px; font-weight: bold;">R ${summary.totalSales.toFixed(2)}</div>
+                    </div>
+                    <div style="background: #fff3e0; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Total VAT</div>
+                        <div style="font-size: 24px; font-weight: bold;">R ${summary.totalVat.toFixed(2)}</div>
+                    </div>
+                    <div style="background: #f3e5f5; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Total Profit</div>
+                        <div style="font-size: 24px; font-weight: bold;">R ${summary.totalProfit.toFixed(2)}</div>
+                    </div>
+                    <div style="background: #e3f2fd; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Avg Daily Sales</div>
+                        <div style="font-size: 24px; font-weight: bold;">R ${summary.avgDailySales}</div>
+                    </div>
+                </div>
+                <table class="products-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Transactions</th>
+                            <th>Daily Sales</th>
+                            <th>Daily VAT</th>
+                            <th>Daily Profit</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            days.forEach(day => {
+                html += `
+                    <tr>
+                        <td>${new Date(day.sale_date).toLocaleDateString()}</td>
+                        <td>${day.transaction_count}</td>
+                        <td>R ${day.daily_sales.toFixed(2)}</td>
+                        <td>R ${day.daily_vat.toFixed(2)}</td>
+                        <td>R ${day.daily_profit.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        function renderAuditTrailReport(data, container) {
+            const { sales, summary } = data;
+            let html = `
+                <h2 style="margin-bottom: 20px;">Sales Audit Trail</h2>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;">
+                    <div style="background: #e8f5e9; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Total Transactions</div>
+                        <div style="font-size: 24px; font-weight: bold;">${summary.totalTransactions}</div>
+                    </div>
+                    <div style="background: #fff3e0; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Total Amount</div>
+                        <div style="font-size: 24px; font-weight: bold;">R ${summary.totalAmount.toFixed(2)}</div>
+                    </div>
+                    <div style="background: #f3e5f5; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Payment Methods</div>
+                        <div style="font-size: 24px; font-weight: bold;">${summary.paymentMethods.join(', ')}</div>
+                    </div>
+                </div>
+                <table class="products-table">
+                    <thead>
+                        <tr>
+                            <th>Sale #</th>
+                            <th>Date</th>
+                            <th>Cashier</th>
+                            <th>Items</th>
+                            <th>Qty</th>
+                            <th>Subtotal</th>
+                            <th>VAT</th>
+                            <th>Total</th>
+                            <th>Payment</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            sales.forEach(sale => {
+                html += `
+                    <tr>
+                        <td>${sale.sale_number}</td>
+                        <td>${new Date(sale.created_at).toLocaleDateString()}</td>
+                        <td>${sale.cashier}</td>
+                        <td>${sale.item_count}</td>
+                        <td>${sale.total_quantity}</td>
+                        <td>R ${sale.subtotal.toFixed(2)}</td>
+                        <td>R ${sale.vat_amount.toFixed(2)}</td>
+                        <td>R ${sale.total_amount.toFixed(2)}</td>
+                        <td>${sale.payment_method}</td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        function renderVatDetailReport(data, container) {
+            const { items, summary } = data;
+            let html = `
+                <h2 style="margin-bottom: 20px;">VAT Report - Detail</h2>
+                <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-bottom: 20px;">
+                    <div style="background: #e8f5e9; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Subtotal</div>
+                        <div style="font-size: 24px; font-weight: bold;">R ${summary.totalSubtotal.toFixed(2)}</div>
+                    </div>
+                    <div style="background: #fff3e0; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Total VAT</div>
+                        <div style="font-size: 24px; font-weight: bold;">R ${summary.totalVat.toFixed(2)}</div>
+                    </div>
+                    <div style="background: #f3e5f5; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Total with VAT</div>
+                        <div style="font-size: 24px; font-weight: bold;">R ${summary.totalWithVat.toFixed(2)}</div>
+                    </div>
+                    <div style="background: #e3f2fd; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Vatable Items</div>
+                        <div style="font-size: 24px; font-weight: bold;">${summary.vatableItems}</div>
+                    </div>
+                    <div style="background: #fce4ec; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Exempt Items</div>
+                        <div style="font-size: 24px; font-weight: bold;">${summary.exemptItems}</div>
+                    </div>
+                </div>
+                <table class="products-table">
+                    <thead>
+                        <tr>
+                            <th>Sale #</th>
+                            <th>Date</th>
+                            <th>Cashier</th>
+                            <th>Product</th>
+                            <th>Qty</th>
+                            <th>Unit Price</th>
+                            <th>Subtotal</th>
+                            <th>VAT</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            items.forEach(item => {
+                html += `
+                    <tr>
+                        <td>${item.sale_number}</td>
+                        <td>${new Date(item.created_at).toLocaleDateString()}</td>
+                        <td>${item.cashier}</td>
+                        <td>${item.product_name}</td>
+                        <td>${item.quantity}</td>
+                        <td>R ${item.unit_price.toFixed(2)}</td>
+                        <td>R ${item.subtotal.toFixed(2)}</td>
+                        <td>R ${item.vat_amount.toFixed(2)}</td>
+                        <td>R ${item.total_with_vat.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        function renderVatSummaryReport(data, container) {
+            const { summary, totals } = data;
+            let html = `
+                <h2 style="margin-bottom: 20px;">VAT Report - Summary</h2>
+                <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; margin-bottom: 20px;">
+                    <div style="background: #e8f5e9; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Taxable Amount</div>
+                        <div style="font-size: 24px; font-weight: bold;">R ${totals.totalTaxable.toFixed(2)}</div>
+                    </div>
+                    <div style="background: #fff3e0; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">VAT Collected</div>
+                        <div style="font-size: 24px; font-weight: bold;">R ${totals.totalVat.toFixed(2)}</div>
+                    </div>
+                    <div style="background: #fce4ec; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Exempt Amount</div>
+                        <div style="font-size: 24px; font-weight: bold;">R ${totals.totalExempt.toFixed(2)}</div>
+                    </div>
+                    <div style="background: #f3e5f5; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Total Sales</div>
+                        <div style="font-size: 24px; font-weight: bold;">R ${totals.totalSales.toFixed(2)}</div>
+                    </div>
+                    <div style="background: #e3f2fd; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 12px; color: #666;">Effective VAT Rate</div>
+                        <div style="font-size: 24px; font-weight: bold;">${totals.effectiveVatRate}%</div>
+                    </div>
+                </div>
+                <table class="products-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Taxable Amount</th>
+                            <th>VAT Collected</th>
+                            <th>Exempt Amount</th>
+                            <th>Total Sales</th>
+                            <th>Transactions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            summary.forEach(row => {
+                html += `
+                    <tr>
+                        <td>${new Date(row.report_date).toLocaleDateString()}</td>
+                        <td>R ${row.taxable_amount.toFixed(2)}</td>
+                        <td>R ${row.vat_collected.toFixed(2)}</td>
+                        <td>R ${row.exempt_amount.toFixed(2)}</td>
+                        <td>R ${row.total_sales.toFixed(2)}</td>
+                        <td>${row.transaction_count}</td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        function renderInventorySyncReport(data, container) {
+            const { items, count, lastId } = data;
+            let html = `
+                <h2 style="margin-bottom: 20px;">Inventory Sync Data</h2>
+                <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <p><strong>Status:</strong> Ready to sync with Inventory Management System</p>
+                    <p><strong>Total Items:</strong> ${count}</p>
+                    <p><strong>Last Sync ID:</strong> ${lastId || 'None'}</p>
+                    <button class="btn btn-primary" onclick="syncToInventory()">📤 Sync to Inventory System</button>
+                </div>
+                <table class="products-table">
+                    <thead>
+                        <tr>
+                            <th>Sale #</th>
+                            <th>Date</th>
+                            <th>Product Code</th>
+                            <th>Product Name</th>
+                            <th>Quantity Sold</th>
+                            <th>Unit Price</th>
+                            <th>Cost Price</th>
+                            <th>Cost Total</th>
+                            <th>Payment Method</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            items.forEach(item => {
+                html += `
+                    <tr>
+                        <td>${item.sale_number}</td>
+                        <td>${new Date(item.created_at).toLocaleDateString()}</td>
+                        <td>${item.product_code}</td>
+                        <td>${item.product_name}</td>
+                        <td>${item.quantity}</td>
+                        <td>R ${item.unit_price.toFixed(2)}</td>
+                        <td>R ${item.cost_price.toFixed(2)}</td>
+                        <td>R ${item.cost_total.toFixed(2)}</td>
+                        <td>${item.payment_method}</td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        function renderAccountingSyncReport(data, container) {
+            const { invoices, count, lastId } = data;
+            let html = `
+                <h2 style="margin-bottom: 20px;">Accounting Sync Data</h2>
+                <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <p><strong>Status:</strong> Ready to sync with Accounting System</p>
+                    <p><strong>Total Invoices:</strong> ${count}</p>
+                    <p><strong>Last Sync ID:</strong> ${lastId || 'None'}</p>
+                    <button class="btn btn-primary" onclick="syncToAccounting()">📤 Sync to Accounting System</button>
+                </div>
+            `;
+
+            invoices.forEach(inv => {
+                html += `
+                    <div style="background: white; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 8px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
+                            <div><strong>${inv.invoice_number}</strong></div>
+                            <div>${new Date(inv.invoice_date).toLocaleDateString()}</div>
+                            <div>${inv.cashier}</div>
+                            <div>${inv.payment_method}</div>
+                        </div>
+                        <table style="width: 100%; font-size: 13px; margin-bottom: 10px;">
+                            <thead>
+                                <tr style="background: #f5f5f5;">
+                                    <th style="padding: 8px; text-align: left;">Product</th>
+                                    <th style="padding: 8px; text-align: right;">Qty</th>
+                                    <th style="padding: 8px; text-align: right;">Unit Price</th>
+                                    <th style="padding: 8px; text-align: right;">Subtotal</th>
+                                    <th style="padding: 8px; text-align: right;">VAT</th>
+                                    <th style="padding: 8px; text-align: right;">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                inv.line_items.forEach(item => {
+                    html += `
+                        <tr>
+                            <td style="padding: 6px;">${item.product_name}</td>
+                            <td style="padding: 6px; text-align: right;">${item.quantity}</td>
+                            <td style="padding: 6px; text-align: right;">R ${item.unit_price.toFixed(2)}</td>
+                            <td style="padding: 6px; text-align: right;">R ${item.line_subtotal.toFixed(2)}</td>
+                            <td style="padding: 6px; text-align: right;">R ${item.line_vat.toFixed(2)}</td>
+                            <td style="padding: 6px; text-align: right;">R ${item.line_total.toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+
+                html += `
+                            </tbody>
+                        </table>
+                        <div style="display: grid; grid-template-columns: auto 1fr auto auto; gap: 15px; font-weight: bold; text-align: right;">
+                            <div></div>
+                            <div></div>
+                            <div style="min-width: 100px;">Subtotal:</div>
+                            <div style="min-width: 100px;">R ${inv.subtotal.toFixed(2)}</div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: auto 1fr auto auto; gap: 15px; font-weight: bold; text-align: right;">
+                            <div></div>
+                            <div></div>
+                            <div style="min-width: 100px;">VAT:</div>
+                            <div style="min-width: 100px;">R ${inv.vat_amount.toFixed(2)}</div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: auto 1fr auto auto; gap: 15px; font-weight: bold; text-align: right; border-top: 2px solid #667eea; padding-top: 10px;">
+                            <div></div>
+                            <div></div>
+                            <div style="min-width: 100px;">TOTAL:</div>
+                            <div style="min-width: 100px; color: #667eea;">R ${inv.total_amount.toFixed(2)}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function exportCurrentReport() {
+            const container = document.getElementById('reportContainer');
+            const table = container.querySelector('table');
+
+            if (!table) {
+                showNotification('No table data to export', 'error');
+                return;
+            }
+
+            let csv = [];
+            const rows = table.querySelectorAll('tr');
+
+            rows.forEach(row => {
+                const cols = row.querySelectorAll('td, th');
+                const csvRow = Array.from(cols).map(col => `"${col.textContent.trim()}"`).join(',');
+                csv.push(csvRow);
+            });
+
+            const csvContent = csv.join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentReport}_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+
+            showNotification('Report exported successfully', 'success');
+        }
+
+        function syncToInventory() {
+            showNotification('Syncing to Inventory System... (Coming soon)', 'info');
+        }
+
+        function syncToAccounting() {
+            showNotification('Syncing to Accounting System... (Coming soon)', 'info');
+        }
+
+        // Customer Management Functions
+        let currentCustomerId = null;
+
+        function showSettings(section, event) {
+            if (event) {
+                const items = document.querySelectorAll('.settings-menu-item');
+                items.forEach(item => item.classList.remove('active'));
+                event.target.classList.add('active');
+            }
+
+            const sections = document.querySelectorAll('[id$="Section"]');
+            sections.forEach(s => s.style.display = 'none');
+
+            const sectionId = section + 'Section';
+            const section_element = document.getElementById(sectionId);
+            if (section_element) {
+                section_element.style.display = 'block';
+                if (section === 'customers') {
+                    loadCustomers();
+                }
+            }
+        }
+
+        async function loadCustomers() {
+            try {
+                const activeOnly = document.getElementById('activeCustomersOnly')?.checked;
+                const query = activeOnly ? '?active_only=true' : '';
+
+                const response = await fetch(`${API_URL}/customers${query}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const result = await response.json();
+                displayCustomers(result.customers || []);
+            } catch (error) {
+                console.error('Error loading customers:', error);
+                showNotification('Error loading customers', 'error');
+            }
+        }
+
+        function displayCustomers(customers) {
+            const tbody = document.getElementById('customersTableBody');
+            tbody.innerHTML = '';
+
+            document.getElementById('customerCount').textContent = `${customers.length} Customers`;
+
+            if (customers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #999;">No customers found</td></tr>';
+                return;
+            }
+
+            customers.forEach(customer => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${customer.name}</td>
+                    <td>${customer.contact_number || '-'}</td>
+                    <td>${customer.email || '-'}</td>
+                    <td>${customer.company || '-'}</td>
+                    <td>${customer.customer_type || 'Cash Sale Customer'}</td>
+                    <td>
+                        <button class="btn btn-sm btn-secondary" onclick="editCustomer(${customer.id})">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteCustomer(${customer.id})">Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function showAddCustomer() {
+            currentCustomerId = null;
+            document.getElementById('customerName').value = '';
+            document.getElementById('customerContactPerson').value = '';
+            document.getElementById('customerContactNumber').value = '';
+            document.getElementById('customerEmail').value = '';
+            document.getElementById('customerAddress1').value = '';
+            document.getElementById('customerAddress2').value = '';
+            document.getElementById('customerSuburb').value = '';
+            document.getElementById('customerCity').value = '';
+            document.getElementById('customerProvince').value = '';
+            document.getElementById('customerPostalCode').value = '';
+            document.getElementById('customerTaxReference').value = '';
+            document.getElementById('customerCompany').value = '';
+            document.getElementById('customerType').value = 'Cash Sale Customer';
+            document.getElementById('customerCustomField').value = '';
+            document.getElementById('customerActive').checked = true;
+
+            document.getElementById('customerModal').style.display = 'flex';
+        }
+
+        async function editCustomer(id) {
+            try {
+                const response = await fetch(`${API_URL}/customers/${id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const result = await response.json();
+                const customer = result.customer;
+
+                currentCustomerId = id;
+                document.getElementById('customerName').value = customer.name;
+                document.getElementById('customerContactPerson').value = customer.contact_person || '';
+                document.getElementById('customerContactNumber').value = customer.contact_number || '';
+                document.getElementById('customerEmail').value = customer.email || '';
+                document.getElementById('customerAddress1').value = customer.address_line_1 || '';
+                document.getElementById('customerAddress2').value = customer.address_line_2 || '';
+                document.getElementById('customerSuburb').value = customer.suburb || '';
+                document.getElementById('customerCity').value = customer.city || '';
+                document.getElementById('customerProvince').value = customer.province || '';
+                document.getElementById('customerPostalCode').value = customer.postal_code || '';
+                document.getElementById('customerTaxReference').value = customer.tax_reference || '';
+                document.getElementById('customerCompany').value = customer.company || '';
+                document.getElementById('customerType').value = customer.customer_type || 'Cash Sale Customer';
+                document.getElementById('customerCustomField').value = customer.custom_field || '';
+                document.getElementById('customerActive').checked = customer.is_active === 1;
+
+                document.getElementById('customerModal').style.display = 'flex';
+            } catch (error) {
+                console.error('Error loading customer:', error);
+                showNotification('Error loading customer', 'error');
+            }
+        }
+
+        function closeCustomerModal() {
+            document.getElementById('customerModal').style.display = 'none';
+            currentCustomerId = null;
+        }
+
+        async function saveCustomer() {
+            const name = document.getElementById('customerName').value.trim();
+
+            if (!name) {
+                document.getElementById('nameError').style.display = 'block';
+                return;
+            }
+
+            const customerData = {
+                name,
+                contact_person: document.getElementById('customerContactPerson').value,
+                contact_number: document.getElementById('customerContactNumber').value,
+                email: document.getElementById('customerEmail').value,
+                address_line_1: document.getElementById('customerAddress1').value,
+                address_line_2: document.getElementById('customerAddress2').value,
+                suburb: document.getElementById('customerSuburb').value,
+                city: document.getElementById('customerCity').value,
+                province: document.getElementById('customerProvince').value,
+                postal_code: document.getElementById('customerPostalCode').value,
+                tax_reference: document.getElementById('customerTaxReference').value,
+                company: document.getElementById('customerCompany').value,
+                customer_type: document.getElementById('customerType').value,
+                custom_field: document.getElementById('customerCustomField').value,
+                is_active: document.getElementById('customerActive').checked
+            };
+
+            try {
+                const method = currentCustomerId ? 'PUT' : 'POST';
+                const url = currentCustomerId ? `${API_URL}/customers/${currentCustomerId}` : `${API_URL}/customers`;
+
+                const response = await fetch(url, {
+                    method,
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(customerData)
+                });
+
+                if (response.ok) {
+                    showNotification(currentCustomerId ? 'Customer updated successfully' : 'Customer created successfully', 'success');
+                    closeCustomerModal();
+                    loadCustomers();
+                } else {
+                    const error = await response.json();
+                    showNotification(error.error || 'Error saving customer', 'error');
+                }
+            } catch (error) {
+                console.error('Error saving customer:', error);
+                showNotification('Error saving customer', 'error');
+            }
+        }
+
+        async function deleteCustomer(id) {
+            if (confirm('Are you sure you want to delete this customer?')) {
+                try {
+                    const response = await fetch(`${API_URL}/customers/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (response.ok) {
+                        showNotification('Customer deleted successfully', 'success');
+                        loadCustomers();
+                    } else {
+                        showNotification('Error deleting customer', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error deleting customer:', error);
+                    showNotification('Error deleting customer', 'error');
+                }
+            }
+        }
+
+        async function searchCustomers() {
+            const query = document.getElementById('customerSearch').value.trim();
+
+            if (!query) {
+                loadCustomers();
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/customers/search?q=${encodeURIComponent(query)}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const result = await response.json();
+                displayCustomers(result.customers || []);
+            } catch (error) {
+                console.error('Error searching customers:', error);
+                showNotification('Error searching customers', 'error');
+            }
+        }
+
+        function toggleActiveOnly() {
+            loadCustomers();
+        }
+
+        function exportCustomers() {
+            try {
+                const tbody = document.getElementById('customersTableBody');
+                const rows = tbody.querySelectorAll('tr');
+                const data = [];
+
+                const headers = ['Name', 'Contact Person', 'Contact Number', 'Email', 'Address 1', 'Address 2', 'Suburb', 'City', 'Province', 'Postal Code', 'Tax Reference', 'Company', 'Type', 'Active'];
+                data.push(headers.join(','));
+
+                rows.forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length > 0) {
+                        const rowData = [];
+                        const cells_text = Array.from(cells).slice(0, -1).map(cell => `"${cell.textContent.trim()}"`);
+                        data.push(cells_text.join(','));
+                    }
+                });
+
+                const csv = data.join('\n');
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `customers_${new Date().toISOString().split('T')[0]}.csv`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+
+                showNotification('Customers exported successfully', 'success');
+            } catch (error) {
+                console.error('Error exporting customers:', error);
+                showNotification('Error exporting customers', 'error');
+            }
         }
     </script>
 </body>

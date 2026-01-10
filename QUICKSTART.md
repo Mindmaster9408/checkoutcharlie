@@ -35,7 +35,7 @@ The server is currently running at: **http://localhost:3000**
 
 - 10 demo products with stock
 - Full shopping cart functionality
-- Multiple payment methods (Cash, Card, EFT)
+- Multiple payment methods (Cash, Card, Account)
 - Automatic VAT calculation (15%)
 - Till session tracking
 - Sales history

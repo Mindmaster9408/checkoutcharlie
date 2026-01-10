@@ -91,6 +91,28 @@ db.serialize(() => {
     FOREIGN KEY (product_id) REFERENCES products(id)
   )`);
 
+  // Customers table
+  db.run(`CREATE TABLE IF NOT EXISTS customers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    contact_person TEXT,
+    contact_number TEXT,
+    email TEXT,
+    address_line_1 TEXT,
+    address_line_2 TEXT,
+    suburb TEXT,
+    city TEXT,
+    province TEXT,
+    postal_code TEXT,
+    tax_reference TEXT,
+    company TEXT,
+    customer_type TEXT DEFAULT 'Cash Sale Customer',
+    custom_field TEXT,
+    is_active INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
   // Insert demo user
   const passwordHash = bcrypt.hashSync('demo123', 10);
   db.run(`INSERT OR IGNORE INTO users (username, password_hash, full_name, role)
