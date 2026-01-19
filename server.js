@@ -13,7 +13,7 @@ const customersRoutes = require('./routes/customers');
 const reportsRoutes = require('./routes/reports');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 // Middleware
 app.use(cors());
@@ -41,7 +41,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
-app.listen(PORT, () => {
-  console.log(`POS System Server running on http://localhost:${PORT}`);
-  console.log(`API available at http://localhost:${PORT}/api`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`POS System Server running on port ${PORT}`);
+  console.log(`API available at /api`);
 });
