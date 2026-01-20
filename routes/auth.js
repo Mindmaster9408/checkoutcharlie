@@ -1,3 +1,15 @@
+/**
+ * ============================================================================
+ * ⚠️  CRITICAL FILE - DO NOT MODIFY WITHOUT CAREFUL CONSIDERATION  ⚠️
+ * ============================================================================
+ * This file handles user authentication (login) for the POS system.
+ * Changes here can break login functionality on Zeabur deployment.
+ *
+ * Last stable version: v1.0-stable-auth
+ * To restore: git checkout v1.0-stable-auth -- routes/auth.js
+ * ============================================================================
+ */
+
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');

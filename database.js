@@ -1,3 +1,15 @@
+/**
+ * ============================================================================
+ * ⚠️  CRITICAL FILE - DO NOT MODIFY WITHOUT CAREFUL CONSIDERATION  ⚠️
+ * ============================================================================
+ * This file handles the PostgreSQL database connection for Zeabur deployment.
+ * Changes here can break the entire application login and database access.
+ *
+ * Last stable version: v1.0-stable-auth
+ * To restore: git checkout v1.0-stable-auth -- database.js
+ * ============================================================================
+ */
+
 const { Pool } = require('pg');
 
 // Zeabur internal PostgreSQL doesn't need SSL

@@ -17,6 +17,18 @@ const reportsRoutes = require('./routes/reports');
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+/**
+ * ============================================================================
+ * ⚠️  CRITICAL SECTION - DO NOT MODIFY WITHOUT CAREFUL CONSIDERATION  ⚠️
+ * ============================================================================
+ * The initDatabase() function below handles PostgreSQL setup for Zeabur.
+ * Modifying this can break the entire application.
+ *
+ * Last stable version: v1.0-stable-auth
+ * To restore: git checkout v1.0-stable-auth -- server.js
+ * ============================================================================
+ */
+
 // Auto-initialize database on startup
 async function initDatabase() {
   if (!process.env.DATABASE_URL) {
