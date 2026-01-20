@@ -94,9 +94,17 @@ async function initDatabase() {
       stock_quantity INTEGER DEFAULT 0,
       min_stock_level INTEGER DEFAULT 10,
       is_active INTEGER DEFAULT 1,
+      barcode VARCHAR(100),
+      requires_vat INTEGER DEFAULT 1,
+      vat_rate DECIMAL(5,2) DEFAULT 15,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`);
+
+    // Add missing columns if they don't exist (for existing tables)
+    await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS barcode VARCHAR(100)`);
+    await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS requires_vat INTEGER DEFAULT 1`);
+    await pool.query(`ALTER TABLE products ADD COLUMN IF NOT EXISTS vat_rate DECIMAL(5,2) DEFAULT 15`);
 
     // Sales table
     await pool.query(`CREATE TABLE IF NOT EXISTS sales (

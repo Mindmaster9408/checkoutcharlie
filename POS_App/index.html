@@ -1197,7 +1197,12 @@
 
                 <div class="form-group">
                     <label>Code <span class="required">*</span></label>
-                    <input type="text" id="productCode" required>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="text" id="productCodePrefix" maxlength="3" style="width: 80px; text-transform: uppercase;" placeholder="PRE" value="PRO">
+                        <input type="text" id="productCode" required style="flex: 1;" readonly>
+                        <button type="button" class="btn btn-secondary" onclick="generateProductCode()" style="width: auto; padding: 10px 15px;">Generate</button>
+                    </div>
+                    <div style="font-size: 12px; color: #666; margin-top: 5px;">Enter 3-letter prefix (e.g., company initials) then click Generate</div>
                     <div class="error-text" id="codeError" style="display: none;">This field is required</div>
                 </div>
 
@@ -2106,10 +2111,12 @@
             }
         }
 
-        function showAddProduct() {
+        async function showAddProduct() {
             editingProductId = null;
             document.getElementById('modalTitle').textContent = 'Add Product';
+            document.getElementById('productCodePrefix').value = 'PRO';
             document.getElementById('productCode').value = '';
+            document.getElementById('productCode').readOnly = true;
             document.getElementById('productDescription').value = '';
             document.getElementById('productSearchable').value = '';
             document.getElementById('productCategory').value = '';
@@ -2127,12 +2134,43 @@
             document.getElementById('seanResponse').innerHTML = '';
 
             document.getElementById('productModal').style.display = 'flex';
+
+            // Auto-generate the product code
+            await generateProductCode();
+        }
+
+        async function generateProductCode() {
+            const prefix = document.getElementById('productCodePrefix').value.trim().toUpperCase() || 'PRO';
+
+            try {
+                const response = await fetch(`${API_URL}/pos/products/next-code/${prefix}`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('productCode').value = data.code;
+                } else {
+                    // Fallback: generate locally
+                    document.getElementById('productCode').value = `${prefix}001`;
+                }
+            } catch (error) {
+                console.error('Error generating product code:', error);
+                // Fallback
+                document.getElementById('productCode').value = `${prefix}001`;
+            }
         }
 
         function editProduct(product) {
             editingProductId = product.id;
             document.getElementById('modalTitle').textContent = 'Edit Product';
+            // Extract prefix from existing code (first 3 chars)
+            const existingCode = product.product_code || '';
+            document.getElementById('productCodePrefix').value = existingCode.substring(0, 3);
             document.getElementById('productCode').value = product.product_code;
+            document.getElementById('productCode').readOnly = false; // Allow editing when editing product
             document.getElementById('productDescription').value = product.product_name;
             document.getElementById('productSearchable').value = product.product_name;
             document.getElementById('productCategory').value = product.category || '';

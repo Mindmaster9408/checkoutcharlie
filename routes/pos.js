@@ -145,6 +145,39 @@ router.get('/products', (req, res) => {
   });
 });
 
+// Generate next product code based on company prefix
+router.get('/products/next-code/:prefix', (req, res) => {
+  const prefix = req.params.prefix.toUpperCase().substring(0, 3);
+
+  // Find the highest existing code with this prefix
+  db.all(
+    `SELECT product_code FROM products WHERE product_code LIKE ? ORDER BY product_code DESC LIMIT 1`,
+    [`${prefix}%`],
+    (err, results) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+
+      let nextNumber = 1;
+
+      if (results && results.length > 0) {
+        const lastCode = results[0].product_code;
+        // Extract the number part from the code (e.g., "ABC005" -> 5)
+        const numberPart = lastCode.replace(prefix, '');
+        const lastNumber = parseInt(numberPart, 10);
+        if (!isNaN(lastNumber)) {
+          nextNumber = lastNumber + 1;
+        }
+      }
+
+      // Format with leading zeros (e.g., 001, 002, etc.)
+      const nextCode = `${prefix}${String(nextNumber).padStart(3, '0')}`;
+
+      res.json({ code: nextCode });
+    }
+  );
+});
+
 // Create product
 router.post('/products', (req, res) => {
   const {
