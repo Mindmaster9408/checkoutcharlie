@@ -32,7 +32,7 @@ app.use('/api/reports', reportsRoutes);
 
 // Serve the main POS application
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'POS_App', 'checkout-charlie.html'));
+  res.sendFile(path.join(__dirname, 'POS_App', 'index.html'));
 });
 
 // Error handling middleware

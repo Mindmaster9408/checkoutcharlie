@@ -7,9 +7,11 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "init-db": "node init-database.js",
+    "init-db-pg": "node init-database-pg.js",
     "init-sean": "node init-sean-ai.js",
     "init-barcodes": "node init-barcodes.js",
-    "setup": "node init-database.js && node init-sean-ai.js && node init-barcodes.js"
+    "setup": "node init-database.js && node init-sean-ai.js && node init-barcodes.js",
+    "setup-pg": "node init-database-pg.js"
   },
   "keywords": ["pos", "point-of-sale", "retail"],
   "author": "",
