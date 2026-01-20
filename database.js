@@ -1,11 +1,16 @@
 const { Pool } = require('pg');
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
+// Zeabur internal PostgreSQL doesn't need SSL
+const poolConfig = {
+  connectionString: process.env.DATABASE_URL
+};
+
+// Only add SSL for external databases (not Zeabur internal)
+if (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('neon.tech')) {
+  poolConfig.ssl = { rejectUnauthorized: false };
+}
+
+const pool = new Pool(poolConfig);
 
 // Export query function for PostgreSQL
 module.exports = {

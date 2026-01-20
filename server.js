@@ -24,10 +24,12 @@ async function initDatabase() {
     return;
   }
 
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
-  });
+  // Zeabur internal PostgreSQL doesn't need SSL
+  const poolConfig = {
+    connectionString: process.env.DATABASE_URL
+  };
+
+  const pool = new Pool(poolConfig);
 
   try {
     console.log('Checking/initializing PostgreSQL database...');
