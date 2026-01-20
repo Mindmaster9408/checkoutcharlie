@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const { Pool } = require('pg');
+const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
@@ -14,6 +16,141 @@ const reportsRoutes = require('./routes/reports');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+
+// Auto-initialize database on startup
+async function initDatabase() {
+  if (!process.env.DATABASE_URL) {
+    console.log('No DATABASE_URL found, skipping PostgreSQL init');
+    return;
+  }
+
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+  });
+
+  try {
+    console.log('Checking/initializing PostgreSQL database...');
+
+    // Users table
+    await pool.query(`CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      username VARCHAR(255) UNIQUE NOT NULL,
+      password_hash VARCHAR(255) NOT NULL,
+      full_name VARCHAR(255) NOT NULL,
+      role VARCHAR(50) NOT NULL,
+      is_active INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Tills table
+    await pool.query(`CREATE TABLE IF NOT EXISTS tills (
+      id SERIAL PRIMARY KEY,
+      till_name VARCHAR(255) UNIQUE NOT NULL,
+      till_number VARCHAR(50) UNIQUE NOT NULL,
+      location VARCHAR(255),
+      is_active INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Till Sessions table
+    await pool.query(`CREATE TABLE IF NOT EXISTS till_sessions (
+      id SERIAL PRIMARY KEY,
+      till_id INTEGER NOT NULL REFERENCES tills(id),
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      opening_balance DECIMAL(10,2) NOT NULL,
+      closing_balance DECIMAL(10,2),
+      expected_balance DECIMAL(10,2),
+      variance DECIMAL(10,2),
+      status VARCHAR(20) DEFAULT 'open',
+      opened_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      closed_at TIMESTAMP,
+      notes TEXT
+    )`);
+
+    // Products table
+    await pool.query(`CREATE TABLE IF NOT EXISTS products (
+      id SERIAL PRIMARY KEY,
+      product_code VARCHAR(50) UNIQUE NOT NULL,
+      product_name VARCHAR(255) NOT NULL,
+      description TEXT,
+      category VARCHAR(100),
+      unit_price DECIMAL(10,2) NOT NULL,
+      cost_price DECIMAL(10,2),
+      stock_quantity INTEGER DEFAULT 0,
+      min_stock_level INTEGER DEFAULT 10,
+      is_active INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Sales table
+    await pool.query(`CREATE TABLE IF NOT EXISTS sales (
+      id SERIAL PRIMARY KEY,
+      sale_number VARCHAR(50) UNIQUE NOT NULL,
+      till_session_id INTEGER NOT NULL REFERENCES till_sessions(id),
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      subtotal DECIMAL(10,2) NOT NULL,
+      vat_amount DECIMAL(10,2) NOT NULL,
+      total_amount DECIMAL(10,2) NOT NULL,
+      payment_method VARCHAR(50) NOT NULL,
+      status VARCHAR(20) DEFAULT 'completed',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Sale Items table
+    await pool.query(`CREATE TABLE IF NOT EXISTS sale_items (
+      id SERIAL PRIMARY KEY,
+      sale_id INTEGER NOT NULL REFERENCES sales(id),
+      product_id INTEGER NOT NULL REFERENCES products(id),
+      quantity INTEGER NOT NULL,
+      unit_price DECIMAL(10,2) NOT NULL,
+      total_price DECIMAL(10,2) NOT NULL
+    )`);
+
+    // Customers table
+    await pool.query(`CREATE TABLE IF NOT EXISTS customers (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      contact_person VARCHAR(255),
+      contact_number VARCHAR(50),
+      email VARCHAR(255),
+      address_line_1 VARCHAR(255),
+      address_line_2 VARCHAR(255),
+      suburb VARCHAR(100),
+      city VARCHAR(100),
+      province VARCHAR(100),
+      postal_code VARCHAR(20),
+      tax_reference VARCHAR(50),
+      company VARCHAR(255),
+      customer_type VARCHAR(50) DEFAULT 'Cash Sale Customer',
+      custom_field TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Insert demo user if not exists
+    const passwordHash = bcrypt.hashSync('demo123', 10);
+    await pool.query(`
+      INSERT INTO users (username, password_hash, full_name, role)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (username) DO NOTHING
+    `, ['demo', passwordHash, 'Demo User', 'cashier']);
+
+    // Insert demo till if not exists
+    await pool.query(`
+      INSERT INTO tills (till_name, till_number, location)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (till_name) DO NOTHING
+    `, ['Main Till', 'TILL-001', 'Front Counter']);
+
+    console.log('✅ Database initialized successfully');
+    await pool.end();
+  } catch (err) {
+    console.error('Database init error:', err.message);
+  }
+}
 
 // Middleware
 app.use(cors());
@@ -41,7 +178,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`POS System Server running on port ${PORT}`);
-  console.log(`API available at /api`);
+// Initialize database then start server
+initDatabase().then(() => {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`POS System Server running on port ${PORT}`);
+    console.log(`API available at /api`);
+  });
 });
