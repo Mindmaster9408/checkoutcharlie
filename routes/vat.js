@@ -1,15 +1,18 @@
 const express = require('express');
 const db = require('../database');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireCompany, requirePermission } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Apply authentication to all routes
+// Apply authentication and company context to all routes
 router.use(authenticateToken);
+router.use(requireCompany);
 
 // Get VAT settings
 router.get('/settings', (req, res) => {
-  db.get('SELECT * FROM vat_settings WHERE id = 1', [], (err, settings) => {
+  const companyId = req.user.companyId;
+
+  db.get('SELECT * FROM vat_settings WHERE company_id = ?', [companyId], (err, settings) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
@@ -30,43 +33,80 @@ router.get('/settings', (req, res) => {
   });
 });
 
-// Update VAT settings
-router.put('/settings', (req, res) => {
+// Update VAT settings - Only for accountants and business owners
+router.put('/settings', requirePermission('SETTINGS.VAT'), (req, res) => {
   const { is_vat_registered, vat_number, vat_rate } = req.body;
   const userId = req.user.userId;
+  const companyId = req.user.companyId;
 
-  db.run(
-    `UPDATE vat_settings
-     SET is_vat_registered = ?,
-         vat_number = ?,
-         vat_rate = ?,
-         updated_at = CURRENT_TIMESTAMP,
-         updated_by_user_id = ?
-     WHERE id = 1`,
-    [is_vat_registered ? 1 : 0, vat_number, vat_rate || 15.0, userId],
-    function(err) {
-      if (err) {
-        return res.status(500).json({ error: 'Failed to update VAT settings' });
-      }
-
-      // Log audit event
-      db.run(
-        `INSERT INTO audit_trail (user_id, event_type, event_category, event_data)
-         VALUES (?, ?, ?, ?)`,
-        [userId, 'vat_settings_updated', 'settings', JSON.stringify({ is_vat_registered, vat_number, vat_rate })]
-      );
-
-      res.json({
-        success: true,
-        message: 'VAT settings updated successfully'
-      });
+  // First check if settings exist for this company
+  db.get('SELECT id FROM vat_settings WHERE company_id = ?', [companyId], (err, existing) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
     }
-  );
+
+    if (existing) {
+      // Update existing settings
+      db.run(
+        `UPDATE vat_settings
+         SET is_vat_registered = ?,
+             vat_number = ?,
+             vat_rate = ?,
+             updated_at = CURRENT_TIMESTAMP,
+             updated_by_user_id = ?
+         WHERE company_id = ?`,
+        [is_vat_registered ? 1 : 0, vat_number, vat_rate || 15.0, userId, companyId],
+        function(err) {
+          if (err) {
+            return res.status(500).json({ error: 'Failed to update VAT settings' });
+          }
+
+          // Log audit event
+          db.run(
+            `INSERT INTO audit_trail (company_id, user_id, event_type, event_category, event_data)
+             VALUES (?, ?, ?, ?, ?)`,
+            [companyId, userId, 'vat_settings_updated', 'settings', JSON.stringify({ is_vat_registered, vat_number, vat_rate })]
+          );
+
+          res.json({
+            success: true,
+            message: 'VAT settings updated successfully'
+          });
+        }
+      );
+    } else {
+      // Insert new settings for this company
+      db.run(
+        `INSERT INTO vat_settings (company_id, is_vat_registered, vat_number, vat_rate, updated_by_user_id)
+         VALUES (?, ?, ?, ?, ?)`,
+        [companyId, is_vat_registered ? 1 : 0, vat_number, vat_rate || 15.0, userId],
+        function(err) {
+          if (err) {
+            return res.status(500).json({ error: 'Failed to create VAT settings' });
+          }
+
+          // Log audit event
+          db.run(
+            `INSERT INTO audit_trail (company_id, user_id, event_type, event_category, event_data)
+             VALUES (?, ?, ?, ?, ?)`,
+            [companyId, userId, 'vat_settings_created', 'settings', JSON.stringify({ is_vat_registered, vat_number, vat_rate })]
+          );
+
+          res.json({
+            success: true,
+            message: 'VAT settings created successfully'
+          });
+        }
+      );
+    }
+  });
 });
 
 // Get products with VAT information
 router.get('/products', (req, res) => {
-  db.get('SELECT vat_rate, is_vat_registered FROM vat_settings WHERE id = 1', [], (err, vatSettings) => {
+  const companyId = req.user.companyId;
+
+  db.get('SELECT vat_rate, is_vat_registered FROM vat_settings WHERE company_id = ?', [companyId], (err, vatSettings) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
@@ -74,7 +114,7 @@ router.get('/products', (req, res) => {
     const isVatRegistered = vatSettings && vatSettings.is_vat_registered === 1;
     const vatRate = vatSettings ? vatSettings.vat_rate : 15.0;
 
-    db.all('SELECT * FROM products WHERE is_active = 1 ORDER BY product_name', [], (err, products) => {
+    db.all('SELECT * FROM products WHERE company_id = ? AND is_active = 1 ORDER BY product_name', [companyId], (err, products) => {
       if (err) {
         return res.status(500).json({ error: 'Database error' });
       }
@@ -117,12 +157,13 @@ router.get('/products', (req, res) => {
 // Calculate VAT for a sale
 router.post('/calculate', (req, res) => {
   const { items } = req.body;
+  const companyId = req.user.companyId;
 
   if (!items || !Array.isArray(items)) {
     return res.status(400).json({ error: 'Items array required' });
   }
 
-  db.get('SELECT vat_rate, is_vat_registered FROM vat_settings WHERE id = 1', [], (err, vatSettings) => {
+  db.get('SELECT vat_rate, is_vat_registered FROM vat_settings WHERE company_id = ?', [companyId], (err, vatSettings) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
@@ -135,8 +176,8 @@ router.post('/calculate', (req, res) => {
     const placeholders = productIds.map(() => '?').join(',');
 
     db.all(
-      `SELECT id, unit_price, requires_vat, vat_rate FROM products WHERE id IN (${placeholders})`,
-      productIds,
+      `SELECT id, unit_price, requires_vat, vat_rate FROM products WHERE id IN (${placeholders}) AND company_id = ?`,
+      [...productIds, companyId],
       (err, products) => {
         if (err) {
           return res.status(500).json({ error: 'Database error' });

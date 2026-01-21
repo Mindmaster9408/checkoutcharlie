@@ -1,15 +1,17 @@
 const express = require('express');
 const db = require('../database');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireCompany, requirePermission } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Apply authentication to all routes
+// Apply authentication and company context to all routes
 router.use(authenticateToken);
+router.use(requireCompany);
 
-// Get audit trail
-router.get('/trail', (req, res) => {
+// Get audit trail - Only for accountants and business owners
+router.get('/trail', requirePermission('REPORTS.AUDIT'), (req, res) => {
   const { userId, tillSessionId, eventType, startDate, endDate, limit = 100, offset = 0 } = req.query;
+  const companyId = req.user.companyId;
 
   let query = `
     SELECT
@@ -25,10 +27,10 @@ router.get('/trail', (req, res) => {
       a.created_at
     FROM audit_trail a
     LEFT JOIN users u ON a.user_id = u.id
-    WHERE 1=1
+    WHERE a.company_id = ?
   `;
 
-  const params = [];
+  const params = [companyId];
 
   if (userId) {
     query += ' AND a.user_id = ?';
@@ -82,6 +84,7 @@ router.get('/trail', (req, res) => {
 router.post('/log', (req, res) => {
   const { eventType, eventCategory, component, eventData, tillSessionId } = req.body;
   const userId = req.user.userId;
+  const companyId = req.user.companyId;
 
   if (!eventType) {
     return res.status(400).json({ error: 'eventType is required' });
@@ -90,9 +93,9 @@ router.post('/log', (req, res) => {
   const data = JSON.stringify(eventData || {});
 
   db.run(
-    `INSERT INTO audit_trail (user_id, till_session_id, event_type, event_category, component, event_data, ip_address)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [userId, tillSessionId || null, eventType, eventCategory || 'general', component || null, data, req.ip],
+    `INSERT INTO audit_trail (company_id, user_id, till_session_id, event_type, event_category, component, event_data, ip_address)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [companyId, userId, tillSessionId || null, eventType, eventCategory || 'general', component || null, data, req.ip],
     function(err) {
       if (err) {
         return res.status(500).json({ error: 'Failed to log audit event' });
@@ -106,9 +109,10 @@ router.post('/log', (req, res) => {
   );
 });
 
-// Get audit summary
-router.get('/summary', (req, res) => {
+// Get audit summary - Only for accountants and business owners
+router.get('/summary', requirePermission('REPORTS.AUDIT'), (req, res) => {
   const { userId, tillSessionId, startDate, endDate } = req.query;
+  const companyId = req.user.companyId;
 
   let query = `
     SELECT
@@ -117,10 +121,10 @@ router.get('/summary', (req, res) => {
       COUNT(*) as count,
       DATE(created_at) as date
     FROM audit_trail
-    WHERE 1=1
+    WHERE company_id = ?
   `;
 
-  const params = [];
+  const params = [companyId];
 
   if (userId) {
     query += ' AND user_id = ?';
@@ -153,10 +157,11 @@ router.get('/summary', (req, res) => {
   });
 });
 
-// Get user activity timeline
-router.get('/user-timeline/:userId', (req, res) => {
+// Get user activity timeline - Only for accountants and business owners
+router.get('/user-timeline/:userId', requirePermission('REPORTS.AUDIT'), (req, res) => {
   const userId = req.params.userId;
   const { startDate, endDate } = req.query;
+  const companyId = req.user.companyId;
 
   let query = `
     SELECT
@@ -167,10 +172,10 @@ router.get('/user-timeline/:userId', (req, res) => {
       a.created_at,
       a.till_session_id
     FROM audit_trail a
-    WHERE a.user_id = ?
+    WHERE a.user_id = ? AND a.company_id = ?
   `;
 
-  const params = [userId];
+  const params = [userId, companyId];
 
   if (startDate) {
     query += ' AND a.created_at >= ?';

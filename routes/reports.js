@@ -1,20 +1,22 @@
 const express = require('express');
 const db = require('../database');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireCompany, requirePermission } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Apply authentication to all routes
+// Apply authentication and company context to all routes
 router.use(authenticateToken);
+router.use(requireCompany);
 
 // ===== SALES REPORTS =====
 
-// Gross Profit Report
-router.get('/sales/gross-profit', (req, res) => {
+// Gross Profit Report - Only for accountants and business owners
+router.get('/sales/gross-profit', requirePermission('REPORTS.PROFIT'), (req, res) => {
   const { startDate, endDate } = req.query;
-  
+  const companyId = req.user.companyId;
+
   let query = `
-    SELECT 
+    SELECT
       s.created_at,
       s.sale_number,
       u.full_name as cashier,
@@ -27,31 +29,31 @@ router.get('/sales/gross-profit', (req, res) => {
     JOIN sale_items si ON s.id = si.sale_id
     JOIN products p ON si.product_id = p.id
     JOIN users u ON s.user_id = u.id
-    WHERE 1=1
+    WHERE s.company_id = ?
   `;
-  
-  const params = [];
-  
+
+  const params = [companyId];
+
   if (startDate) {
     query += ' AND DATE(s.created_at) >= ?';
     params.push(startDate);
   }
-  
+
   if (endDate) {
     query += ' AND DATE(s.created_at) <= ?';
     params.push(endDate);
   }
-  
+
   query += ' GROUP BY s.id ORDER BY s.created_at DESC';
-  
+
   db.all(query, params, (err, sales) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
-    
+
     const totalProfit = sales.reduce((sum, s) => sum + (s.gross_profit || 0), 0);
     const totalSales = sales.reduce((sum, s) => sum + (s.total_amount || 0), 0);
-    
+
     res.json({
       sales,
       summary: {
@@ -64,12 +66,13 @@ router.get('/sales/gross-profit', (req, res) => {
   });
 });
 
-// Gross Profit by Salesperson
-router.get('/sales/gross-profit-by-person', (req, res) => {
+// Gross Profit by Salesperson - Only for accountants and business owners
+router.get('/sales/gross-profit-by-person', requirePermission('REPORTS.PROFIT'), (req, res) => {
   const { startDate, endDate } = req.query;
-  
+  const companyId = req.user.companyId;
+
   let query = `
-    SELECT 
+    SELECT
       u.full_name as cashier,
       COUNT(DISTINCT s.id) as sales_count,
       SUM(s.total_amount) as total_sales,
@@ -80,31 +83,31 @@ router.get('/sales/gross-profit-by-person', (req, res) => {
     JOIN sale_items si ON s.id = si.sale_id
     JOIN products p ON si.product_id = p.id
     JOIN users u ON s.user_id = u.id
-    WHERE 1=1
+    WHERE s.company_id = ?
   `;
-  
-  const params = [];
-  
+
+  const params = [companyId];
+
   if (startDate) {
     query += ' AND DATE(s.created_at) >= ?';
     params.push(startDate);
   }
-  
+
   if (endDate) {
     query += ' AND DATE(s.created_at) <= ?';
     params.push(endDate);
   }
-  
+
   query += ' GROUP BY u.id, u.full_name ORDER BY gross_profit DESC';
-  
+
   db.all(query, params, (err, data) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
-    
+
     const totalProfit = data.reduce((sum, d) => sum + (d.gross_profit || 0), 0);
     const totalSales = data.reduce((sum, d) => sum + (d.total_sales || 0), 0);
-    
+
     res.json({
       data,
       summary: {
@@ -117,12 +120,13 @@ router.get('/sales/gross-profit-by-person', (req, res) => {
   });
 });
 
-// Gross Profit by Product
-router.get('/sales/gross-profit-by-product', (req, res) => {
+// Gross Profit by Product - Only for accountants and business owners
+router.get('/sales/gross-profit-by-product', requirePermission('REPORTS.PROFIT'), (req, res) => {
   const { startDate, endDate } = req.query;
-  
+  const companyId = req.user.companyId;
+
   let query = `
-    SELECT 
+    SELECT
       p.product_code,
       p.product_name,
       p.category,
@@ -134,31 +138,31 @@ router.get('/sales/gross-profit-by-product', (req, res) => {
     FROM sale_items si
     JOIN products p ON si.product_id = p.id
     JOIN sales s ON si.sale_id = s.id
-    WHERE 1=1
+    WHERE s.company_id = ?
   `;
-  
-  const params = [];
-  
+
+  const params = [companyId];
+
   if (startDate) {
     query += ' AND DATE(s.created_at) >= ?';
     params.push(startDate);
   }
-  
+
   if (endDate) {
     query += ' AND DATE(s.created_at) <= ?';
     params.push(endDate);
   }
-  
+
   query += ' GROUP BY p.id ORDER BY gross_profit DESC';
-  
+
   db.all(query, params, (err, products) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
-    
+
     const totalProfit = products.reduce((sum, p) => sum + (p.gross_profit || 0), 0);
     const totalRevenue = products.reduce((sum, p) => sum + (p.total_revenue || 0), 0);
-    
+
     res.json({
       products,
       summary: {
@@ -171,12 +175,13 @@ router.get('/sales/gross-profit-by-product', (req, res) => {
   });
 });
 
-// Daily Sales Summary
-router.get('/sales/daily-summary', (req, res) => {
+// Daily Sales Summary - Only for accountants and business owners
+router.get('/sales/daily-summary', requirePermission('REPORTS.SALES'), (req, res) => {
   const { startDate, endDate } = req.query;
-  
+  const companyId = req.user.companyId;
+
   let query = `
-    SELECT 
+    SELECT
       DATE(s.created_at) as sale_date,
       COUNT(DISTINCT s.id) as transaction_count,
       SUM(s.total_amount) as daily_sales,
@@ -185,32 +190,32 @@ router.get('/sales/daily-summary', (req, res) => {
     FROM sales s
     JOIN sale_items si ON s.id = si.sale_id
     JOIN products p ON si.product_id = p.id
-    WHERE 1=1
+    WHERE s.company_id = ?
   `;
-  
-  const params = [];
-  
+
+  const params = [companyId];
+
   if (startDate) {
     query += ' AND DATE(s.created_at) >= ?';
     params.push(startDate);
   }
-  
+
   if (endDate) {
     query += ' AND DATE(s.created_at) <= ?';
     params.push(endDate);
   }
-  
+
   query += ' GROUP BY DATE(s.created_at) ORDER BY sale_date DESC';
-  
+
   db.all(query, params, (err, days) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
-    
+
     const totalSales = days.reduce((sum, d) => sum + (d.daily_sales || 0), 0);
     const totalVat = days.reduce((sum, d) => sum + (d.daily_vat || 0), 0);
     const totalProfit = days.reduce((sum, d) => sum + (d.daily_profit || 0), 0);
-    
+
     res.json({
       days,
       summary: {
@@ -224,12 +229,13 @@ router.get('/sales/daily-summary', (req, res) => {
   });
 });
 
-// Sales Audit Trail
-router.get('/sales/audit-trail', (req, res) => {
+// Sales Audit Trail - Only for accountants and business owners
+router.get('/sales/audit-trail', requirePermission('REPORTS.AUDIT'), (req, res) => {
   const { startDate, endDate } = req.query;
-  
+  const companyId = req.user.companyId;
+
   let query = `
-    SELECT 
+    SELECT
       s.id,
       s.sale_number,
       s.created_at,
@@ -244,28 +250,28 @@ router.get('/sales/audit-trail', (req, res) => {
     FROM sales s
     JOIN users u ON s.user_id = u.id
     LEFT JOIN sale_items si ON s.id = si.sale_id
-    WHERE 1=1
+    WHERE s.company_id = ?
   `;
-  
-  const params = [];
-  
+
+  const params = [companyId];
+
   if (startDate) {
     query += ' AND DATE(s.created_at) >= ?';
     params.push(startDate);
   }
-  
+
   if (endDate) {
     query += ' AND DATE(s.created_at) <= ?';
     params.push(endDate);
   }
-  
+
   query += ' GROUP BY s.id ORDER BY s.created_at DESC';
-  
+
   db.all(query, params, (err, sales) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
-    
+
     res.json({
       sales,
       summary: {
@@ -279,12 +285,13 @@ router.get('/sales/audit-trail', (req, res) => {
 
 // ===== VAT REPORTS =====
 
-// VAT Report - Detail
-router.get('/vat/detail', (req, res) => {
+// VAT Report - Detail - Only for accountants and business owners
+router.get('/vat/detail', requirePermission('REPORTS.VAT'), (req, res) => {
   const { startDate, endDate } = req.query;
-  
+  const companyId = req.user.companyId;
+
   let query = `
-    SELECT 
+    SELECT
       s.id,
       s.sale_number,
       s.created_at,
@@ -294,11 +301,11 @@ router.get('/vat/detail', (req, res) => {
       si.quantity,
       si.unit_price,
       si.total_price as subtotal,
-      CASE 
+      CASE
         WHEN p.requires_vat = 1 THEN si.total_price * 0.15
         ELSE 0
       END as vat_amount,
-      CASE 
+      CASE
         WHEN p.requires_vat = 1 THEN si.total_price + (si.total_price * 0.15)
         ELSE si.total_price
       END as total_with_vat,
@@ -307,32 +314,32 @@ router.get('/vat/detail', (req, res) => {
     JOIN sale_items si ON s.id = si.sale_id
     JOIN products p ON si.product_id = p.id
     JOIN users u ON s.user_id = u.id
-    WHERE 1=1
+    WHERE s.company_id = ?
   `;
-  
-  const params = [];
-  
+
+  const params = [companyId];
+
   if (startDate) {
     query += ' AND DATE(s.created_at) >= ?';
     params.push(startDate);
   }
-  
+
   if (endDate) {
     query += ' AND DATE(s.created_at) <= ?';
     params.push(endDate);
   }
-  
+
   query += ' ORDER BY s.created_at DESC, s.id ASC';
-  
+
   db.all(query, params, (err, items) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
-    
+
     const totalSubtotal = items.reduce((sum, i) => sum + (i.subtotal || 0), 0);
     const totalVat = items.reduce((sum, i) => sum + (i.vat_amount || 0), 0);
     const totalWithVat = items.reduce((sum, i) => sum + (i.total_with_vat || 0), 0);
-    
+
     res.json({
       items,
       summary: {
@@ -346,12 +353,13 @@ router.get('/vat/detail', (req, res) => {
   });
 });
 
-// VAT Report - Summary
-router.get('/vat/summary', (req, res) => {
+// VAT Report - Summary - Only for accountants and business owners
+router.get('/vat/summary', requirePermission('REPORTS.VAT'), (req, res) => {
   const { startDate, endDate } = req.query;
-  
+  const companyId = req.user.companyId;
+
   let query = `
-    SELECT 
+    SELECT
       DATE(s.created_at) as report_date,
       SUM(CASE WHEN p.requires_vat = 1 THEN si.total_price ELSE 0 END) as taxable_amount,
       SUM(CASE WHEN p.requires_vat = 1 THEN si.total_price * 0.15 ELSE 0 END) as vat_collected,
@@ -361,32 +369,32 @@ router.get('/vat/summary', (req, res) => {
     FROM sales s
     JOIN sale_items si ON s.id = si.sale_id
     JOIN products p ON si.product_id = p.id
-    WHERE 1=1
+    WHERE s.company_id = ?
   `;
-  
-  const params = [];
-  
+
+  const params = [companyId];
+
   if (startDate) {
     query += ' AND DATE(s.created_at) >= ?';
     params.push(startDate);
   }
-  
+
   if (endDate) {
     query += ' AND DATE(s.created_at) <= ?';
     params.push(endDate);
   }
-  
+
   query += ' GROUP BY DATE(s.created_at) ORDER BY report_date DESC';
-  
+
   db.all(query, params, (err, summary) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
-    
+
     const totalTaxable = summary.reduce((sum, s) => sum + (s.taxable_amount || 0), 0);
     const totalVat = summary.reduce((sum, s) => sum + (s.vat_collected || 0), 0);
     const totalExempt = summary.reduce((sum, s) => sum + (s.exempt_amount || 0), 0);
-    
+
     res.json({
       summary,
       totals: {
@@ -405,9 +413,10 @@ router.get('/vat/summary', (req, res) => {
 // Get sales for Inventory System (all sold items with quantities)
 router.get('/integration/inventory-sync', (req, res) => {
   const { sinceId } = req.query;
-  
+  const companyId = req.user.companyId;
+
   let query = `
-    SELECT 
+    SELECT
       s.id as sale_id,
       s.sale_number,
       s.created_at,
@@ -422,23 +431,23 @@ router.get('/integration/inventory-sync', (req, res) => {
     FROM sales s
     JOIN sale_items si ON s.id = si.sale_id
     JOIN products p ON si.product_id = p.id
-    WHERE s.status = 'completed'
+    WHERE s.status = 'completed' AND s.company_id = ?
   `;
-  
-  const params = [];
-  
+
+  const params = [companyId];
+
   if (sinceId) {
     query += ' AND s.id > ?';
     params.push(sinceId);
   }
-  
+
   query += ' ORDER BY s.id ASC';
-  
+
   db.all(query, params, (err, items) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
-    
+
     res.json({
       items,
       lastId: items.length > 0 ? items[items.length - 1].sale_id : null,
@@ -451,9 +460,10 @@ router.get('/integration/inventory-sync', (req, res) => {
 // Get sales for Accounting System (invoice format)
 router.get('/integration/accounting-sync', (req, res) => {
   const { sinceId } = req.query;
-  
+  const companyId = req.user.companyId;
+
   let query = `
-    SELECT 
+    SELECT
       s.id as invoice_id,
       s.sale_number as invoice_number,
       s.created_at as invoice_date,
@@ -475,23 +485,23 @@ router.get('/integration/accounting-sync', (req, res) => {
     JOIN sale_items si ON s.id = si.sale_id
     JOIN products p ON si.product_id = p.id
     JOIN users u ON s.user_id = u.id
-    WHERE s.status = 'completed'
+    WHERE s.status = 'completed' AND s.company_id = ?
   `;
-  
-  const params = [];
-  
+
+  const params = [companyId];
+
   if (sinceId) {
     query += ' AND s.id > ?';
     params.push(sinceId);
   }
-  
+
   query += ' ORDER BY s.id ASC, si.id ASC';
-  
+
   db.all(query, params, (err, items) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
-    
+
     // Group by invoice
     const invoices = {};
     items.forEach(item => {
@@ -508,7 +518,7 @@ router.get('/integration/accounting-sync', (req, res) => {
           line_items: []
         };
       }
-      
+
       invoices[item.invoice_id].line_items.push({
         product_id: item.product_id,
         product_code: item.product_code,
@@ -521,9 +531,9 @@ router.get('/integration/accounting-sync', (req, res) => {
         line_total: item.line_total
       });
     });
-    
+
     const invoiceList = Object.values(invoices);
-    
+
     res.json({
       invoices: invoiceList,
       lastId: items.length > 0 ? items[items.length - 1].invoice_id : null,

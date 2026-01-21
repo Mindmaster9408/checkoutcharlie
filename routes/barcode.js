@@ -1,15 +1,18 @@
 const express = require('express');
 const db = require('../database');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireCompany } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Apply authentication to all routes
+// Apply authentication and company context to all routes
 router.use(authenticateToken);
+router.use(requireCompany);
 
 // Get barcode settings
 router.get('/settings', (req, res) => {
-  db.get('SELECT * FROM barcode_settings WHERE id = 1', [], (err, settings) => {
+  const companyId = req.user.companyId;
+
+  db.get('SELECT * FROM barcode_settings WHERE company_id = ?', [companyId], (err, settings) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
@@ -28,43 +31,67 @@ router.get('/settings', (req, res) => {
 router.put('/settings', (req, res) => {
   const { company_prefix, current_sequence, barcode_type, auto_generate } = req.body;
   const userId = req.user.userId;
+  const companyId = req.user.companyId;
 
   if (!company_prefix || company_prefix.length < 2 || company_prefix.length > 5) {
     return res.status(400).json({ error: 'Company prefix must be 2-5 digits' });
   }
 
-  db.run(
-    `UPDATE barcode_settings
-     SET company_prefix = ?,
-         current_sequence = ?,
-         barcode_type = ?,
-         auto_generate = ?,
-         updated_at = CURRENT_TIMESTAMP,
-         updated_by_user_id = ?
-     WHERE id = 1`,
-    [company_prefix, current_sequence || 1000, barcode_type || 'EAN13', auto_generate ? 1 : 0, userId],
-    function(err) {
-      if (err) {
-        return res.status(500).json({ error: 'Failed to update settings' });
-      }
-
-      // Log audit
-      db.run(
-        `INSERT INTO audit_trail (user_id, event_type, event_category, event_data)
-         VALUES (?, ?, ?, ?)`,
-        [userId, 'barcode_settings_updated', 'settings', JSON.stringify({ company_prefix, current_sequence })]
-      );
-
-      res.json({ success: true, message: 'Barcode settings updated' });
+  // Check if settings exist for this company
+  db.get('SELECT id FROM barcode_settings WHERE company_id = ?', [companyId], (err, existing) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
     }
-  );
+
+    if (existing) {
+      db.run(
+        `UPDATE barcode_settings
+         SET company_prefix = ?,
+             current_sequence = ?,
+             barcode_type = ?,
+             auto_generate = ?,
+             updated_at = CURRENT_TIMESTAMP,
+             updated_by_user_id = ?
+         WHERE company_id = ?`,
+        [company_prefix, current_sequence || 1000, barcode_type || 'EAN13', auto_generate ? 1 : 0, userId, companyId],
+        function(err) {
+          if (err) {
+            return res.status(500).json({ error: 'Failed to update settings' });
+          }
+
+          // Log audit
+          db.run(
+            `INSERT INTO audit_trail (company_id, user_id, event_type, event_category, event_data)
+             VALUES (?, ?, ?, ?, ?)`,
+            [companyId, userId, 'barcode_settings_updated', 'settings', JSON.stringify({ company_prefix, current_sequence })]
+          );
+
+          res.json({ success: true, message: 'Barcode settings updated' });
+        }
+      );
+    } else {
+      db.run(
+        `INSERT INTO barcode_settings (company_id, company_prefix, current_sequence, barcode_type, auto_generate, updated_by_user_id)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [companyId, company_prefix, current_sequence || 1000, barcode_type || 'EAN13', auto_generate ? 1 : 0, userId],
+        function(err) {
+          if (err) {
+            return res.status(500).json({ error: 'Failed to create settings' });
+          }
+
+          res.json({ success: true, message: 'Barcode settings created' });
+        }
+      );
+    }
+  });
 });
 
 // Generate new company barcode
 router.post('/generate', (req, res) => {
   const userId = req.user.userId;
+  const companyId = req.user.companyId;
 
-  db.get('SELECT * FROM barcode_settings WHERE id = 1', [], (err, settings) => {
+  db.get('SELECT * FROM barcode_settings WHERE company_id = ?', [companyId], (err, settings) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
@@ -93,8 +120,8 @@ router.post('/generate', (req, res) => {
        SET current_sequence = current_sequence + 1,
            last_generated = ?,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = 1`,
-      [barcode],
+       WHERE company_id = ?`,
+      [barcode, companyId],
       function(err) {
         if (err) {
           return res.status(500).json({ error: 'Failed to generate barcode' });
@@ -102,9 +129,9 @@ router.post('/generate', (req, res) => {
 
         // Log in history
         db.run(
-          `INSERT INTO barcode_history (barcode, barcode_type, is_company_generated, assigned_by_user_id)
-           VALUES (?, ?, 1, ?)`,
-          [barcode, settings.barcode_type, userId]
+          `INSERT INTO barcode_history (company_id, barcode, barcode_type, is_company_generated, assigned_by_user_id)
+           VALUES (?, ?, ?, 1, ?)`,
+          [companyId, barcode, settings.barcode_type, userId]
         );
 
         res.json({
@@ -121,9 +148,10 @@ router.post('/generate', (req, res) => {
 // Check if barcode exists
 router.get('/check/:barcode', (req, res) => {
   const barcode = req.params.barcode;
+  const companyId = req.user.companyId;
 
-  // Check in products
-  db.get('SELECT id, product_code, product_name FROM products WHERE barcode = ?', [barcode], (err, product) => {
+  // Check in products (scoped to company)
+  db.get('SELECT id, product_code, product_name FROM products WHERE barcode = ? AND company_id = ?', [barcode, companyId], (err, product) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
@@ -140,8 +168,8 @@ router.get('/check/:barcode', (req, res) => {
       });
     }
 
-    // Check in history
-    db.get('SELECT * FROM barcode_history WHERE barcode = ?', [barcode], (err, history) => {
+    // Check in history (scoped to company)
+    db.get('SELECT * FROM barcode_history WHERE barcode = ? AND company_id = ?', [barcode, companyId], (err, history) => {
       if (err) {
         return res.status(500).json({ error: 'Database error' });
       }
@@ -155,7 +183,7 @@ router.get('/check/:barcode', (req, res) => {
         });
       }
 
-      // Check with Sean AI
+      // Check with Sean AI (global knowledge base)
       db.get('SELECT * FROM sean_product_knowledge WHERE barcode = ?', [barcode], (err, sean) => {
         if (sean) {
           return res.json({
@@ -185,13 +213,14 @@ router.get('/check/:barcode', (req, res) => {
 router.post('/assign', (req, res) => {
   const { barcode, productId } = req.body;
   const userId = req.user.userId;
+  const companyId = req.user.companyId;
 
   if (!barcode || !productId) {
     return res.status(400).json({ error: 'Barcode and productId required' });
   }
 
-  // Check if barcode already used
-  db.get('SELECT * FROM products WHERE barcode = ?', [barcode], (err, existing) => {
+  // Check if barcode already used (scoped to company)
+  db.get('SELECT * FROM products WHERE barcode = ? AND company_id = ?', [barcode, companyId], (err, existing) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
@@ -206,10 +235,10 @@ router.post('/assign', (req, res) => {
       });
     }
 
-    // Assign barcode to product
+    // Assign barcode to product (scoped to company)
     db.run(
-      'UPDATE products SET barcode = ? WHERE id = ?',
-      [barcode, productId],
+      'UPDATE products SET barcode = ? WHERE id = ? AND company_id = ?',
+      [barcode, productId, companyId],
       function(err) {
         if (err) {
           return res.status(500).json({ error: 'Failed to assign barcode' });
@@ -217,16 +246,16 @@ router.post('/assign', (req, res) => {
 
         // Log in history
         db.run(
-          `INSERT OR REPLACE INTO barcode_history (barcode, product_id, assigned_by_user_id)
-           VALUES (?, ?, ?)`,
-          [barcode, productId, userId]
+          `INSERT OR REPLACE INTO barcode_history (company_id, barcode, product_id, assigned_by_user_id)
+           VALUES (?, ?, ?, ?)`,
+          [companyId, barcode, productId, userId]
         );
 
         // Log audit
         db.run(
-          `INSERT INTO audit_trail (user_id, event_type, event_category, event_data)
-           VALUES (?, ?, ?, ?)`,
-          [userId, 'barcode_assigned', 'product', JSON.stringify({ barcode, productId })]
+          `INSERT INTO audit_trail (company_id, user_id, event_type, event_category, event_data)
+           VALUES (?, ?, ?, ?, ?)`,
+          [companyId, userId, 'barcode_assigned', 'product', JSON.stringify({ barcode, productId })]
         );
 
         res.json({
@@ -241,14 +270,15 @@ router.post('/assign', (req, res) => {
 // Lookup product by barcode
 router.get('/lookup/:barcode', (req, res) => {
   const barcode = req.params.barcode;
+  const companyId = req.user.companyId;
 
-  db.get('SELECT * FROM products WHERE barcode = ? AND is_active = 1', [barcode], (err, product) => {
+  db.get('SELECT * FROM products WHERE barcode = ? AND company_id = ? AND is_active = 1', [barcode, companyId], (err, product) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
 
     if (!product) {
-      // Check if Sean knows about it
+      // Check if Sean knows about it (global knowledge base)
       db.get('SELECT * FROM sean_product_knowledge WHERE barcode = ?', [barcode], (err, sean) => {
         if (sean) {
           return res.json({
@@ -280,6 +310,7 @@ router.get('/lookup/:barcode', (req, res) => {
 // Get barcode history
 router.get('/history', (req, res) => {
   const { productId, limit = 50 } = req.query;
+  const companyId = req.user.companyId;
 
   let query = `
     SELECT
@@ -290,10 +321,10 @@ router.get('/history', (req, res) => {
     FROM barcode_history bh
     LEFT JOIN products p ON bh.product_id = p.id
     LEFT JOIN users u ON bh.assigned_by_user_id = u.id
-    WHERE 1=1
+    WHERE bh.company_id = ?
   `;
 
-  const params = [];
+  const params = [companyId];
 
   if (productId) {
     query += ' AND bh.product_id = ?';
