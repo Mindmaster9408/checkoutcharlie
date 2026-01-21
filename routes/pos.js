@@ -110,10 +110,14 @@ router.post('/sessions/open', (req, res) => {
 });
 
 // Close till session
+// Cashiers can only close their own sessions
+// Admins can close on behalf of cashiers (for cash-up management)
 router.post('/sessions/:id/close', (req, res) => {
   const { id } = req.params;
   const { closingBalance, closing_balance, expectedBalance, expected_balance, variance, notes } = req.body;
   const companyId = req.user.companyId;
+  const userRole = req.user.role;
+  const userId = req.user.userId;
 
   // Support both camelCase and snake_case
   const closingBal = closingBalance || closing_balance;
@@ -135,6 +139,11 @@ router.post('/sessions/:id/close', (req, res) => {
 
     if (!session) {
       return res.status(404).json({ error: 'Session not found' });
+    }
+
+    // Cashiers can only close their own sessions
+    if (userRole === 'cashier' && session.user_id !== userId) {
+      return res.status(403).json({ error: 'You can only close your own sessions' });
     }
 
     if (session.status !== 'open') {
@@ -433,14 +442,110 @@ router.post('/sales', (req, res) => {
 router.get('/sessions/:id/sales', (req, res) => {
   const { id } = req.params;
   const companyId = req.user.companyId;
+  const userRole = req.user.role;
+  const userId = req.user.userId;
 
-  db.all(`
+  // First verify access to session (cashiers can only see their own)
+  db.get('SELECT user_id FROM till_sessions WHERE id = ? AND company_id = ?', [id, companyId], (err, session) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    if (userRole === 'cashier' && session.user_id !== userId) {
+      return res.status(403).json({ error: 'You can only view your own sessions' });
+    }
+
+    db.all(`
+      SELECT s.*, u.full_name as cashier_name
+      FROM sales s
+      JOIN users u ON s.user_id = u.id
+      WHERE s.till_session_id = ? AND s.company_id = ?
+      ORDER BY s.created_at DESC
+    `, [id, companyId], (err, sales) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+      res.json({ sales });
+    });
+  });
+});
+
+// Get current open session for the logged-in user
+router.get('/sessions/current', (req, res) => {
+  const companyId = req.user.companyId;
+  const userId = req.user.userId;
+
+  db.get(`
+    SELECT ts.*, t.till_name, u.full_name as user_name
+    FROM till_sessions ts
+    JOIN tills t ON ts.till_id = t.id
+    JOIN users u ON ts.user_id = u.id
+    WHERE ts.company_id = ? AND ts.user_id = ? AND ts.status = 'open'
+    ORDER BY ts.opened_at DESC
+    LIMIT 1
+  `, [companyId, userId], (err, session) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+    res.json({ session: session || null });
+  });
+});
+
+// Get all sales (for admins to view and manage cash-ups on behalf of cashiers)
+router.get('/sales', (req, res) => {
+  const companyId = req.user.companyId;
+  const userRole = req.user.role;
+  const userId = req.user.userId;
+  const { session_id } = req.query;
+
+  let query = `
     SELECT s.*, u.full_name as cashier_name
     FROM sales s
     JOIN users u ON s.user_id = u.id
-    WHERE s.till_session_id = ? AND s.company_id = ?
-    ORDER BY s.created_at DESC
-  `, [id, companyId], (err, sales) => {
+    WHERE s.company_id = ?
+  `;
+  const params = [companyId];
+
+  // If session_id provided, filter by it
+  if (session_id) {
+    query += ' AND s.till_session_id = ?';
+    params.push(session_id);
+
+    // If cashier, verify they own this session
+    if (userRole === 'cashier') {
+      db.get('SELECT user_id FROM till_sessions WHERE id = ? AND company_id = ?', [session_id, companyId], (err, session) => {
+        if (err) {
+          return res.status(500).json({ error: 'Database error' });
+        }
+
+        if (!session || session.user_id !== userId) {
+          return res.status(403).json({ error: 'You can only view your own sessions' });
+        }
+
+        db.all(query + ' ORDER BY s.created_at DESC', params, (err, sales) => {
+          if (err) {
+            return res.status(500).json({ error: 'Database error' });
+          }
+          res.json({ sales });
+        });
+      });
+      return;
+    }
+  } else {
+    // If no session_id, cashiers can only see their own sales
+    if (userRole === 'cashier') {
+      query += ' AND s.user_id = ?';
+      params.push(userId);
+    }
+  }
+
+  query += ' ORDER BY s.created_at DESC LIMIT 500';
+
+  db.all(query, params, (err, sales) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
