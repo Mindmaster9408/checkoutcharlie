@@ -1,24 +1,26 @@
 /**
  * ============================================================================
- * ⚠️  CRITICAL FILE - DO NOT MODIFY WITHOUT CAREFUL CONSIDERATION  ⚠️
+ * Authentication Routes - Multi-Tenant POS System
  * ============================================================================
- * This file handles user authentication (login) for the POS system.
- * Changes here can break login functionality on Zeabur deployment.
- *
- * Last stable version: v1.0-stable-auth
- * To restore: git checkout v1.0-stable-auth -- routes/auth.js
+ * Handles login, company selection, and user registration.
  * ============================================================================
  */
 
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const db = require('../database');
+const { authenticateToken } = require('../middleware/auth');
+const { canAccessMultipleCompanies, getRolePermissions } = require('../config/permissions');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
 
-// Login
+/**
+ * POST /api/auth/login
+ * Initial login - returns token and list of accessible companies
+ */
 router.post('/login', (req, res) => {
   const { username, password } = req.body;
 
@@ -41,20 +43,471 @@ router.post('/login', (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const token = jwt.sign(
-      { userId: user.id, username: user.username, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '8h' }
-    );
+    // Get user's accessible companies
+    const userType = user.user_type || 'company_user';
+
+    // Build query based on user type
+    let companiesQuery;
+    let companiesParams;
+
+    if (userType === 'accountant' && user.accounting_firm_id) {
+      // Accountants access companies via their firm
+      companiesQuery = `
+        SELECT c.id, c.company_name, c.trading_name, 'accountant' as role
+        FROM companies c
+        JOIN firm_company_access fca ON c.id = fca.company_id
+        WHERE fca.firm_id = ? AND fca.is_active = 1 AND c.is_active = 1
+        ORDER BY c.company_name
+      `;
+      companiesParams = [user.accounting_firm_id];
+    } else {
+      // Business owners, admins, cashiers access via user_company_access
+      companiesQuery = `
+        SELECT c.id, c.company_name, c.trading_name, uca.role, uca.is_primary
+        FROM companies c
+        JOIN user_company_access uca ON c.id = uca.company_id
+        WHERE uca.user_id = ? AND uca.is_active = 1 AND c.is_active = 1
+        ORDER BY uca.is_primary DESC, c.company_name ASC
+      `;
+      companiesParams = [user.id];
+    }
+
+    db.all(companiesQuery, companiesParams, (err, companies) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error fetching companies' });
+      }
+
+      // Create initial token (without company selected)
+      const tokenPayload = {
+        userId: user.id,
+        username: user.username,
+        userType: userType,
+        accountingFirmId: user.accounting_firm_id || null,
+        companyId: null,
+        role: null
+      };
+
+      // If user has exactly one company, auto-select it
+      let selectedCompany = null;
+      if (companies && companies.length === 1) {
+        selectedCompany = companies[0];
+        tokenPayload.companyId = selectedCompany.id;
+        tokenPayload.role = selectedCompany.role;
+      }
+
+      const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '8h' });
+
+      res.json({
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          fullName: user.full_name,
+          email: user.email,
+          userType: userType,
+          accountingFirmId: user.accounting_firm_id
+        },
+        companies: companies || [],
+        selectedCompany: selectedCompany,
+        requiresCompanySelection: companies && companies.length > 1
+      });
+    });
+  });
+});
+
+/**
+ * GET /api/auth/companies
+ * Get list of companies accessible to the authenticated user
+ */
+router.get('/companies', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const userType = req.user.userType;
+  const firmId = req.user.accountingFirmId;
+
+  let query;
+  let params;
+
+  if (userType === 'accountant' && firmId) {
+    query = `
+      SELECT c.id, c.company_name, c.trading_name, c.vat_number, 'accountant' as role
+      FROM companies c
+      JOIN firm_company_access fca ON c.id = fca.company_id
+      WHERE fca.firm_id = ? AND fca.is_active = 1 AND c.is_active = 1
+      ORDER BY c.company_name
+    `;
+    params = [firmId];
+  } else {
+    query = `
+      SELECT c.id, c.company_name, c.trading_name, c.vat_number, uca.role, uca.is_primary
+      FROM companies c
+      JOIN user_company_access uca ON c.id = uca.company_id
+      WHERE uca.user_id = ? AND uca.is_active = 1 AND c.is_active = 1
+      ORDER BY uca.is_primary DESC, c.company_name ASC
+    `;
+    params = [userId];
+  }
+
+  db.all(query, params, (err, companies) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+    res.json({ companies: companies || [] });
+  });
+});
+
+/**
+ * POST /api/auth/select-company
+ * Select a company to work with, returns new token with company context
+ */
+router.post('/select-company', authenticateToken, (req, res) => {
+  const { companyId } = req.body;
+  const userId = req.user.userId;
+  const userType = req.user.userType;
+  const firmId = req.user.accountingFirmId;
+
+  if (!companyId) {
+    return res.status(400).json({ error: 'Company ID is required' });
+  }
+
+  // Verify user has access to this company
+  let verifyQuery;
+  let verifyParams;
+
+  if (userType === 'accountant' && firmId) {
+    verifyQuery = `
+      SELECT c.*, 'accountant' as role
+      FROM companies c
+      JOIN firm_company_access fca ON c.id = fca.company_id
+      WHERE c.id = ? AND fca.firm_id = ? AND fca.is_active = 1 AND c.is_active = 1
+    `;
+    verifyParams = [companyId, firmId];
+  } else {
+    verifyQuery = `
+      SELECT c.*, uca.role
+      FROM companies c
+      JOIN user_company_access uca ON c.id = uca.company_id
+      WHERE c.id = ? AND uca.user_id = ? AND uca.is_active = 1 AND c.is_active = 1
+    `;
+    verifyParams = [companyId, userId];
+  }
+
+  db.get(verifyQuery, verifyParams, (err, company) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (!company) {
+      return res.status(403).json({ error: 'Access denied to this company' });
+    }
+
+    // Get user details for the new token
+    db.get('SELECT * FROM users WHERE id = ?', [userId], (err, user) => {
+      if (err || !user) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+
+      // Create new token with company context
+      const token = jwt.sign({
+        userId: user.id,
+        username: user.username,
+        userType: userType,
+        accountingFirmId: firmId,
+        companyId: company.id,
+        role: company.role
+      }, JWT_SECRET, { expiresIn: '8h' });
+
+      // Get permissions for this role
+      const permissions = getRolePermissions(company.role);
+
+      res.json({
+        token,
+        company: {
+          id: company.id,
+          name: company.company_name,
+          tradingName: company.trading_name,
+          vatNumber: company.vat_number
+        },
+        role: company.role,
+        permissions: permissions
+      });
+    });
+  });
+});
+
+/**
+ * POST /api/auth/register
+ * Register a new user (via invitation or self-registration for business owners)
+ */
+router.post('/register', async (req, res) => {
+  const { username, email, password, fullName, invitationToken } = req.body;
+
+  if (!username || !password || !fullName) {
+    return res.status(400).json({ error: 'Username, password, and full name are required' });
+  }
+
+  // Check if username exists
+  db.get('SELECT id FROM users WHERE username = ?', [username], async (err, existingUser) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (existingUser) {
+      return res.status(400).json({ error: 'Username already exists' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // If invitation token provided, process it
+    if (invitationToken) {
+      db.get(
+        'SELECT * FROM invitations WHERE token = ? AND is_used = 0 AND expires_at > CURRENT_TIMESTAMP',
+        [invitationToken],
+        (err, invitation) => {
+          if (err) {
+            return res.status(500).json({ error: 'Database error' });
+          }
+
+          if (!invitation) {
+            return res.status(400).json({ error: 'Invalid or expired invitation' });
+          }
+
+          // Create user with invitation context
+          const userType = invitation.invitation_type === 'accountant' ? 'accountant' : 'company_user';
+          const role = invitation.invitation_type;
+
+          db.run(
+            `INSERT INTO users (username, email, password_hash, full_name, role, user_type)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [username, email || invitation.email, passwordHash, fullName, role, userType],
+            function(err) {
+              if (err) {
+                return res.status(500).json({ error: 'Failed to create user' });
+              }
+
+              const newUserId = this.lastID;
+
+              // Link user to company
+              db.run(
+                `INSERT INTO user_company_access (user_id, company_id, role, is_primary)
+                 VALUES (?, ?, ?, 1)`,
+                [newUserId, invitation.company_id, role],
+                (err) => {
+                  if (err) {
+                    return res.status(500).json({ error: 'Failed to link user to company' });
+                  }
+
+                  // Mark invitation as used
+                  db.run(
+                    `UPDATE invitations SET is_used = 1, accepted_at = CURRENT_TIMESTAMP, accepted_by_user_id = ?
+                     WHERE id = ?`,
+                    [newUserId, invitation.id],
+                    (err) => {
+                      if (err) {
+                        console.error('Failed to update invitation:', err);
+                      }
+
+                      res.json({
+                        success: true,
+                        message: 'Account created successfully',
+                        userId: newUserId
+                      });
+                    }
+                  );
+                }
+              );
+            }
+          );
+        }
+      );
+    } else {
+      // Self-registration as business owner (creates new company)
+      db.run(
+        `INSERT INTO users (username, email, password_hash, full_name, role, user_type)
+         VALUES (?, ?, ?, ?, 'business_owner', 'business_owner')`,
+        [username, email, passwordHash, fullName],
+        function(err) {
+          if (err) {
+            return res.status(500).json({ error: 'Failed to create user' });
+          }
+
+          const newUserId = this.lastID;
+
+          // Create a default company for this business owner
+          const companyName = fullName + "'s Business";
+
+          db.run(
+            `INSERT INTO companies (company_name, trading_name)
+             VALUES (?, ?)`,
+            [companyName, companyName],
+            function(err) {
+              if (err) {
+                return res.status(500).json({ error: 'Failed to create company' });
+              }
+
+              const newCompanyId = this.lastID;
+
+              // Link user to company as business owner
+              db.run(
+                `INSERT INTO user_company_access (user_id, company_id, role, is_primary)
+                 VALUES (?, ?, 'business_owner', 1)`,
+                [newUserId, newCompanyId],
+                (err) => {
+                  if (err) {
+                    return res.status(500).json({ error: 'Failed to link user to company' });
+                  }
+
+                  res.json({
+                    success: true,
+                    message: 'Account and company created successfully',
+                    userId: newUserId,
+                    companyId: newCompanyId
+                  });
+                }
+              );
+            }
+          );
+        }
+      );
+    }
+  });
+});
+
+/**
+ * POST /api/auth/invite
+ * Create an invitation for a new user (accountant, admin, or cashier)
+ */
+router.post('/invite', authenticateToken, (req, res) => {
+  const { email, role, companyId } = req.body;
+  const invitedBy = req.user.userId;
+  const userRole = req.user.role;
+
+  // Only business owners can invite users
+  if (userRole !== 'business_owner') {
+    return res.status(403).json({ error: 'Only business owners can invite users' });
+  }
+
+  if (!email || !role) {
+    return res.status(400).json({ error: 'Email and role are required' });
+  }
+
+  const validRoles = ['accountant', 'admin', 'cashier'];
+  if (!validRoles.includes(role)) {
+    return res.status(400).json({ error: 'Invalid role. Must be accountant, admin, or cashier' });
+  }
+
+  const targetCompanyId = companyId || req.user.companyId;
+
+  // Verify user owns this company
+  db.get(
+    'SELECT * FROM user_company_access WHERE user_id = ? AND company_id = ? AND role = ?',
+    [invitedBy, targetCompanyId, 'business_owner'],
+    (err, access) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+
+      if (!access) {
+        return res.status(403).json({ error: 'You do not own this company' });
+      }
+
+      // Generate unique token
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+      db.run(
+        `INSERT INTO invitations (email, company_id, invitation_type, token, invited_by_user_id, expires_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [email, targetCompanyId, role, token, invitedBy, expiresAt.toISOString()],
+        function(err) {
+          if (err) {
+            return res.status(500).json({ error: 'Failed to create invitation' });
+          }
+
+          // Get company name for the invite link
+          db.get('SELECT company_name FROM companies WHERE id = ?', [targetCompanyId], (err, company) => {
+            const inviteUrl = `${process.env.APP_URL || 'https://checkoutcharlie.zeabur.app'}/invite/${token}`;
+
+            res.json({
+              success: true,
+              message: `Invitation created for ${email}`,
+              inviteUrl: inviteUrl,
+              token: token,
+              expiresAt: expiresAt,
+              companyName: company ? company.company_name : 'Unknown'
+            });
+
+            // TODO: Send email with inviteUrl (requires email service integration)
+            console.log(`Invitation created: ${inviteUrl}`);
+          });
+        }
+      );
+    }
+  );
+});
+
+/**
+ * GET /api/auth/invite/:token
+ * Validate an invitation token
+ */
+router.get('/invite/:token', (req, res) => {
+  const { token } = req.params;
+
+  db.get(
+    `SELECT i.*, c.company_name, u.full_name as invited_by_name
+     FROM invitations i
+     JOIN companies c ON i.company_id = c.id
+     LEFT JOIN users u ON i.invited_by_user_id = u.id
+     WHERE i.token = ? AND i.is_used = 0 AND i.expires_at > CURRENT_TIMESTAMP`,
+    [token],
+    (err, invitation) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+
+      if (!invitation) {
+        return res.status(404).json({ error: 'Invalid or expired invitation' });
+      }
+
+      res.json({
+        valid: true,
+        email: invitation.email,
+        role: invitation.invitation_type,
+        companyName: invitation.company_name,
+        invitedBy: invitation.invited_by_name
+      });
+    }
+  );
+});
+
+/**
+ * GET /api/auth/me
+ * Get current user info
+ */
+router.get('/me', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+
+  db.get('SELECT id, username, email, full_name, user_type FROM users WHERE id = ?', [userId], (err, user) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
 
     res.json({
-      token,
       user: {
         id: user.id,
         username: user.username,
+        email: user.email,
         fullName: user.full_name,
-        role: user.role
-      }
+        userType: user.user_type
+      },
+      currentCompany: req.user.companyId ? {
+        id: req.user.companyId,
+        role: req.user.role
+      } : null,
+      permissions: req.user.role ? getRolePermissions(req.user.role) : null
     });
   });
 });

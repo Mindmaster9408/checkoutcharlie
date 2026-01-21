@@ -1,15 +1,23 @@
+/**
+ * POS Routes - Multi-Tenant
+ * All routes filter by company_id from the authenticated user's context
+ */
+
 const express = require('express');
 const db = require('../database');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireCompany, requirePermission } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Apply authentication to all routes
+// Apply authentication and company requirement to all routes
 router.use(authenticateToken);
+router.use(requireCompany);
 
-// Get all tills
+// Get all tills for the current company
 router.get('/tills', (req, res) => {
-  db.all('SELECT * FROM tills WHERE is_active = 1', [], (err, tills) => {
+  const companyId = req.user.companyId;
+
+  db.all('SELECT * FROM tills WHERE company_id = ? AND is_active = 1', [companyId], (err, tills) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
@@ -17,19 +25,31 @@ router.get('/tills', (req, res) => {
   });
 });
 
-// Get till sessions
+// Get till sessions for the current company
 router.get('/sessions', (req, res) => {
+  const companyId = req.user.companyId;
   const { status } = req.query;
+  const userRole = req.user.role;
+  const userId = req.user.userId;
+
   let query = `
     SELECT ts.*, t.till_name, u.full_name as user_name
     FROM till_sessions ts
     JOIN tills t ON ts.till_id = t.id
     JOIN users u ON ts.user_id = u.id
+    WHERE ts.company_id = ?
   `;
 
-  const params = [];
+  const params = [companyId];
+
+  // Cashiers can only see their own sessions
+  if (userRole === 'cashier') {
+    query += ' AND ts.user_id = ?';
+    params.push(userId);
+  }
+
   if (status) {
-    query += ' WHERE ts.status = ?';
+    query += ' AND ts.status = ?';
     params.push(status);
   }
 
@@ -47,33 +67,45 @@ router.get('/sessions', (req, res) => {
 router.post('/sessions/open', (req, res) => {
   const { tillId, openingBalance } = req.body;
   const userId = req.user.userId;
+  const companyId = req.user.companyId;
 
-  // Check if there's already an open session for this till
-  db.get('SELECT * FROM till_sessions WHERE till_id = ? AND status = ?', [tillId, 'open'], (err, existingSession) => {
+  // Verify till belongs to this company
+  db.get('SELECT * FROM tills WHERE id = ? AND company_id = ?', [tillId, companyId], (err, till) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
 
-    if (existingSession) {
-      return res.status(400).json({ error: 'This till already has an open session' });
+    if (!till) {
+      return res.status(404).json({ error: 'Till not found in this company' });
     }
 
-    db.run(
-      'INSERT INTO till_sessions (till_id, user_id, opening_balance) VALUES (?, ?, ?)',
-      [tillId, userId, openingBalance],
-      function(err) {
-        if (err) {
-          return res.status(500).json({ error: 'Failed to open session' });
-        }
-
-        db.get('SELECT * FROM till_sessions WHERE id = ?', [this.lastID], (err, session) => {
-          if (err) {
-            return res.status(500).json({ error: 'Database error' });
-          }
-          res.json({ session });
-        });
+    // Check if there's already an open session for this till
+    db.get('SELECT * FROM till_sessions WHERE till_id = ? AND status = ?', [tillId, 'open'], (err, existingSession) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
       }
-    );
+
+      if (existingSession) {
+        return res.status(400).json({ error: 'This till already has an open session' });
+      }
+
+      db.run(
+        'INSERT INTO till_sessions (company_id, till_id, user_id, opening_balance) VALUES (?, ?, ?, ?)',
+        [companyId, tillId, userId, openingBalance],
+        function(err) {
+          if (err) {
+            return res.status(500).json({ error: 'Failed to open session' });
+          }
+
+          db.get('SELECT * FROM till_sessions WHERE id = ?', [this.lastID], (err, session) => {
+            if (err) {
+              return res.status(500).json({ error: 'Database error' });
+            }
+            res.json({ session });
+          });
+        }
+      );
+    });
   });
 });
 
@@ -81,6 +113,7 @@ router.post('/sessions/open', (req, res) => {
 router.post('/sessions/:id/close', (req, res) => {
   const { id } = req.params;
   const { closingBalance, closing_balance, expectedBalance, expected_balance, variance, notes } = req.body;
+  const companyId = req.user.companyId;
 
   // Support both camelCase and snake_case
   const closingBal = closingBalance || closing_balance;
@@ -93,9 +126,9 @@ router.post('/sessions/:id/close', (req, res) => {
            COALESCE(SUM(s.total_amount), 0) as total_sales
     FROM till_sessions ts
     LEFT JOIN sales s ON s.till_session_id = ts.id
-    WHERE ts.id = ?
+    WHERE ts.id = ? AND ts.company_id = ?
     GROUP BY ts.id
-  `, [id], (err, session) => {
+  `, [id, companyId], (err, session) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
@@ -116,8 +149,8 @@ router.post('/sessions/:id/close', (req, res) => {
       `UPDATE till_sessions
        SET closing_balance = ?, expected_balance = ?, variance = ?,
            status = 'closed', closed_at = CURRENT_TIMESTAMP, notes = ?
-       WHERE id = ?`,
-      [closingBal, finalExpected, finalVariance, notes, id],
+       WHERE id = ? AND company_id = ?`,
+      [closingBal, finalExpected, finalVariance, notes, id, companyId],
       (err) => {
         if (err) {
           return res.status(500).json({ error: 'Failed to close session' });
@@ -135,9 +168,11 @@ router.post('/sessions/:id/close', (req, res) => {
   });
 });
 
-// Get products
+// Get products for the current company
 router.get('/products', (req, res) => {
-  db.all('SELECT * FROM products WHERE is_active = 1 ORDER BY product_name', [], (err, products) => {
+  const companyId = req.user.companyId;
+
+  db.all('SELECT * FROM products WHERE company_id = ? AND is_active = 1 ORDER BY product_name', [companyId], (err, products) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
@@ -148,11 +183,12 @@ router.get('/products', (req, res) => {
 // Generate next product code based on company prefix
 router.get('/products/next-code/:prefix', (req, res) => {
   const prefix = req.params.prefix.toUpperCase().substring(0, 3);
+  const companyId = req.user.companyId;
 
-  // Find the highest existing code with this prefix
+  // Find the highest existing code with this prefix for this company
   db.all(
-    `SELECT product_code FROM products WHERE product_code LIKE ? ORDER BY product_code DESC LIMIT 1`,
-    [`${prefix}%`],
+    `SELECT product_code FROM products WHERE company_id = ? AND product_code LIKE ? ORDER BY product_code DESC LIMIT 1`,
+    [companyId, `${prefix}%`],
     (err, results) => {
       if (err) {
         return res.status(500).json({ error: 'Database error' });
@@ -162,7 +198,6 @@ router.get('/products/next-code/:prefix', (req, res) => {
 
       if (results && results.length > 0) {
         const lastCode = results[0].product_code;
-        // Extract the number part from the code (e.g., "ABC005" -> 5)
         const numberPart = lastCode.replace(prefix, '');
         const lastNumber = parseInt(numberPart, 10);
         if (!isNaN(lastNumber)) {
@@ -170,16 +205,15 @@ router.get('/products/next-code/:prefix', (req, res) => {
         }
       }
 
-      // Format with leading zeros (e.g., 001, 002, etc.)
       const nextCode = `${prefix}${String(nextNumber).padStart(3, '0')}`;
-
       res.json({ code: nextCode });
     }
   );
 });
 
 // Create product
-router.post('/products', (req, res) => {
+router.post('/products', requirePermission('PRODUCTS.CREATE'), (req, res) => {
+  const companyId = req.user.companyId;
   const {
     product_code,
     product_name,
@@ -197,9 +231,10 @@ router.post('/products', (req, res) => {
   }
 
   db.run(
-    `INSERT INTO products (product_code, product_name, category, unit_price, cost_price, is_active, barcode, requires_vat, vat_rate)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO products (company_id, product_code, product_name, category, unit_price, cost_price, is_active, barcode, requires_vat, vat_rate)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
+      companyId,
       product_code,
       product_name,
       category || null,
@@ -226,8 +261,9 @@ router.post('/products', (req, res) => {
 });
 
 // Update product
-router.put('/products/:id', (req, res) => {
+router.put('/products/:id', requirePermission('PRODUCTS.EDIT'), (req, res) => {
   const { id } = req.params;
+  const companyId = req.user.companyId;
   const {
     product_code,
     product_name,
@@ -245,10 +281,10 @@ router.put('/products/:id', (req, res) => {
   }
 
   db.run(
-    `UPDATE products 
-     SET product_code = ?, product_name = ?, category = ?, unit_price = ?, cost_price = ?, 
+    `UPDATE products
+     SET product_code = ?, product_name = ?, category = ?, unit_price = ?, cost_price = ?,
          is_active = ?, barcode = ?, requires_vat = ?, vat_rate = ?, updated_at = CURRENT_TIMESTAMP
-     WHERE id = ?`,
+     WHERE id = ? AND company_id = ?`,
     [
       product_code,
       product_name,
@@ -259,14 +295,15 @@ router.put('/products/:id', (req, res) => {
       barcode || null,
       requires_vat ? 1 : 0,
       parseFloat(vat_rate) || 15,
-      id
+      id,
+      companyId
     ],
     function(err) {
       if (err) {
         return res.status(500).json({ error: 'Failed to update product' });
       }
 
-      db.get('SELECT * FROM products WHERE id = ?', [id], (err, product) => {
+      db.get('SELECT * FROM products WHERE id = ? AND company_id = ?', [id, companyId], (err, product) => {
         if (err) {
           return res.status(500).json({ error: 'Database error' });
         }
@@ -277,12 +314,13 @@ router.put('/products/:id', (req, res) => {
 });
 
 // Delete product (soft delete)
-router.delete('/products/:id', (req, res) => {
+router.delete('/products/:id', requirePermission('PRODUCTS.DELETE'), (req, res) => {
   const { id } = req.params;
+  const companyId = req.user.companyId;
 
   db.run(
-    'UPDATE products SET is_active = 0 WHERE id = ?',
-    [id],
+    'UPDATE products SET is_active = 0 WHERE id = ? AND company_id = ?',
+    [id, companyId],
     function(err) {
       if (err) {
         return res.status(500).json({ error: 'Failed to delete product' });
@@ -294,15 +332,16 @@ router.delete('/products/:id', (req, res) => {
 
 // Create sale
 router.post('/sales', (req, res) => {
-  const { tillSessionId, items, paymentMethod } = req.body;
+  const { tillSessionId, items, paymentMethod, customerId } = req.body;
   const userId = req.user.userId;
+  const companyId = req.user.companyId;
 
   if (!items || items.length === 0) {
     return res.status(400).json({ error: 'No items in sale' });
   }
 
-  // Verify till session is open
-  db.get('SELECT * FROM till_sessions WHERE id = ? AND status = ?', [tillSessionId, 'open'], (err, session) => {
+  // Verify till session is open and belongs to this company
+  db.get('SELECT * FROM till_sessions WHERE id = ? AND company_id = ? AND status = ?', [tillSessionId, companyId, 'open'], (err, session) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
@@ -313,9 +352,9 @@ router.post('/sales', (req, res) => {
 
     // Get product details and verify stock
     const productIds = items.map(item => item.productId);
-    const placeholders = productIds.map(() => '?').join(',');
+    const placeholders = productIds.map((_, i) => `$${i + 2}`).join(',');
 
-    db.all(`SELECT * FROM products WHERE id IN (${placeholders})`, productIds, (err, products) => {
+    db.all(`SELECT * FROM products WHERE company_id = $1 AND id IN (${placeholders})`, [companyId, ...productIds], (err, products) => {
       if (err) {
         return res.status(500).json({ error: 'Database error' });
       }
@@ -354,9 +393,9 @@ router.post('/sales', (req, res) => {
 
       // Insert sale
       db.run(
-        `INSERT INTO sales (sale_number, till_session_id, user_id, subtotal, vat_amount, total_amount, payment_method)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [saleNumber, tillSessionId, userId, subtotal, vatAmount, totalAmount, paymentMethod],
+        `INSERT INTO sales (company_id, sale_number, till_session_id, user_id, customer_id, subtotal, vat_amount, total_amount, payment_method)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [companyId, saleNumber, tillSessionId, userId, customerId || null, subtotal, vatAmount, totalAmount, paymentMethod],
         function(err) {
           if (err) {
             return res.status(500).json({ error: 'Failed to create sale' });
@@ -365,12 +404,12 @@ router.post('/sales', (req, res) => {
           const saleId = this.lastID;
 
           // Insert sale items and update stock
-          const stmt = db.prepare('INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, total_price) VALUES (?, ?, ?, ?, ?)');
-          const updateStmt = db.prepare('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?');
+          const stmt = db.prepare('INSERT INTO sale_items (company_id, sale_id, product_id, quantity, unit_price, total_price) VALUES (?, ?, ?, ?, ?, ?)');
+          const updateStmt = db.prepare('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ? AND company_id = ?');
 
           saleItems.forEach(item => {
-            stmt.run(saleId, item.productId, item.quantity, item.unitPrice, item.totalPrice);
-            updateStmt.run(item.quantity, item.productId);
+            stmt.run(companyId, saleId, item.productId, item.quantity, item.unitPrice, item.totalPrice);
+            updateStmt.run(item.quantity, item.productId, companyId);
           });
 
           stmt.finalize();
@@ -393,14 +432,15 @@ router.post('/sales', (req, res) => {
 // Get sales for a session
 router.get('/sessions/:id/sales', (req, res) => {
   const { id } = req.params;
+  const companyId = req.user.companyId;
 
   db.all(`
     SELECT s.*, u.full_name as cashier_name
     FROM sales s
     JOIN users u ON s.user_id = u.id
-    WHERE s.till_session_id = ?
+    WHERE s.till_session_id = ? AND s.company_id = ?
     ORDER BY s.created_at DESC
-  `, [id], (err, sales) => {
+  `, [id, companyId], (err, sales) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
