@@ -638,6 +638,155 @@
             color: #dc3545 !important;
         }
 
+        /* Split Payment Styles */
+        .split-payment-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+        }
+        .split-payment-section.active {
+            display: block;
+        }
+        .split-payment-row {
+            display: grid;
+            grid-template-columns: 100px 1fr auto;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        .split-payment-row label {
+            font-weight: 500;
+            margin: 0;
+        }
+        .split-payment-row input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .split-remaining {
+            font-weight: bold;
+            color: #667eea;
+            text-align: center;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+        }
+
+        /* Stock Interface Styles */
+        .stock-interface {
+            display: none;
+            height: 100%;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .stock-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 15px;
+        }
+        .stock-filters {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .stock-table {
+            width: 100%;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stock-table th, .stock-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .stock-table th {
+            background: #f5f5f5;
+            font-weight: 600;
+        }
+        .stock-table tbody tr:hover {
+            background: #f9f9f9;
+        }
+        .low-stock {
+            background: #fff3e0 !important;
+        }
+        .out-of-stock {
+            background: #ffebee !important;
+        }
+        .stock-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .stock-badge.ok { background: #e8f5e9; color: #2e7d32; }
+        .stock-badge.low { background: #fff3e0; color: #e65100; }
+        .stock-badge.out { background: #ffebee; color: #c62828; }
+
+        /* Sale Search Styles */
+        .sale-search-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .sale-result-card {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            border-left: 4px solid #667eea;
+        }
+        .sale-result-card:hover {
+            background: #f0f0f0;
+        }
+
+        /* Discount Badge */
+        .discount-badge {
+            background: #ff5722;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+            margin-left: 5px;
+        }
+        .original-price {
+            text-decoration: line-through;
+            color: #999;
+            font-size: 12px;
+        }
+
+        /* Quantity Input in Cart */
+        .qty-input {
+            width: 50px;
+            text-align: center;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        /* Manager Auth Modal */
+        .auth-required {
+            background: #fff3e0;
+            border: 2px solid #ff9800;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .auth-required h4 {
+            color: #e65100;
+            margin: 0 0 10px 0;
+        }
+
         /* Form Elements */
         .form-group {
             margin-bottom: 15px;
@@ -957,10 +1106,213 @@
                             <button class="payment-btn selected" onclick="selectPayment('CASH')">💵 Cash</button>
                             <button class="payment-btn" onclick="selectPayment('CARD')">💳 Card</button>
                             <button class="payment-btn" onclick="selectPayment('ACCOUNT')">👤 Account</button>
+                            <button class="payment-btn" onclick="toggleSplitPayment()" id="splitPaymentBtn">✂️ Split</button>
                         </div>
+
+                        <!-- Split Payment Section -->
+                        <div id="splitPaymentSection" class="split-payment-section">
+                            <div class="split-payment-row">
+                                <label>💵 Cash:</label>
+                                <input type="number" id="splitCashAmount" step="0.01" min="0" value="0" oninput="updateSplitRemaining()">
+                                <span></span>
+                            </div>
+                            <div class="split-payment-row">
+                                <label>💳 Card:</label>
+                                <input type="number" id="splitCardAmount" step="0.01" min="0" value="0" oninput="updateSplitRemaining()">
+                                <span></span>
+                            </div>
+                            <div class="split-remaining">
+                                Remaining: <span id="splitRemainingAmount">R 0.00</span>
+                            </div>
+                        </div>
+
                         <button class="checkout-btn" id="checkoutBtn" onclick="checkout()" disabled>Complete Sale</button>
                         <button class="clear-cart-btn" onclick="clearCart()">Clear Cart</button>
+                        <button class="btn btn-secondary" style="width: 100%; margin-top: 10px;" onclick="openSaleSearch()">🔍 Search Sale / Reprint</button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stock Interface -->
+        <div id="stockInterface" class="stock-interface">
+            <div style="max-width: 1400px; margin: 0 auto;">
+                <div class="stock-header">
+                    <h1 style="color: #667eea; margin: 0;">Stock Management</h1>
+                    <div class="stock-filters">
+                        <select id="stockFilterCategory" onchange="filterStock()" style="padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+                            <option value="">All Categories</option>
+                        </select>
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                            <input type="checkbox" id="lowStockOnly" onchange="filterStock()">
+                            Low Stock Only
+                        </label>
+                        <button class="btn btn-primary" onclick="showStockTakeModal()">Stock Take</button>
+                        <button class="btn btn-secondary" onclick="showStockAdjustModal()">Adjust Stock</button>
+                    </div>
+                </div>
+
+                <table class="stock-table">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Product</th>
+                            <th>Category</th>
+                            <th>Stock Qty</th>
+                            <th>Min Level</th>
+                            <th>Status</th>
+                            <th>Unit Price</th>
+                            <th>Stock Value</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stockTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Sale Search Interface (inside Till) -->
+        <div id="saleSearchModal" class="modal-overlay">
+            <div class="modal" style="max-width: 800px;">
+                <div class="modal-header">
+                    <h2>Search Sales</h2>
+                    <button class="close-btn" onclick="closeSaleSearch()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; margin-bottom: 20px;">
+                        <input type="text" id="saleSearchQuery" placeholder="Sale number, customer, or amount..." onkeyup="debounceSearchSales()">
+                        <input type="date" id="saleSearchDate">
+                        <button class="btn btn-primary" onclick="searchSales()">Search</button>
+                    </div>
+                    <div id="saleSearchResults" style="max-height: 400px; overflow-y: auto;">
+                        <p style="text-align: center; color: #999;">Enter search criteria and click Search</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sale Detail Modal (for reprint/return) -->
+        <div id="saleDetailModal" class="modal-overlay">
+            <div class="modal" style="max-width: 600px;">
+                <div class="modal-header">
+                    <h2>Sale Details</h2>
+                    <button class="close-btn" onclick="closeSaleDetail()">&times;</button>
+                </div>
+                <div class="modal-body" id="saleDetailContent">
+                    <!-- Populated dynamically -->
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeSaleDetail()">Close</button>
+                    <button class="btn btn-secondary" onclick="reprintReceipt()">Reprint Receipt</button>
+                    <button class="btn btn-danger" onclick="showReturnModal()">Process Return</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stock Adjust Modal -->
+        <div id="stockAdjustModal" class="modal-overlay">
+            <div class="modal" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h2>Adjust Stock</h2>
+                    <button class="close-btn" onclick="closeStockAdjust()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Product</label>
+                        <select id="adjustProductId" style="width: 100%;" onchange="loadProductStock()">
+                            <option value="">Select a product...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Current Stock: <span id="currentStockDisplay">-</span></label>
+                    </div>
+                    <div class="form-group">
+                        <label>Adjustment Type</label>
+                        <select id="adjustType">
+                            <option value="add">Add Stock</option>
+                            <option value="remove">Remove Stock</option>
+                            <option value="set">Set Stock Level</option>
+                            <option value="damage">Damaged/Broken</option>
+                            <option value="theft">Theft/Loss</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Quantity</label>
+                        <input type="number" id="adjustQuantity" min="0" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Reason</label>
+                        <textarea id="adjustReason" rows="2" placeholder="Enter reason for adjustment..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeStockAdjust()">Cancel</button>
+                    <button class="btn btn-primary" onclick="submitStockAdjust()">Adjust Stock</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Daily Discount Modal -->
+        <div id="dailyDiscountModal" class="modal-overlay">
+            <div class="modal" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h2>Add Daily Discount</h2>
+                    <button class="close-btn" onclick="closeDailyDiscount()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Product</label>
+                        <select id="discountProductId" style="width: 100%;" onchange="loadProductPrice()">
+                            <option value="">Select a product...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Original Price: <span id="originalPriceDisplay">R 0.00</span></label>
+                    </div>
+                    <div class="form-group">
+                        <label>Discount Price</label>
+                        <input type="number" id="discountPrice" step="0.01" min="0" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Valid Until (leave blank for today only)</label>
+                        <input type="date" id="discountEndDate">
+                    </div>
+                    <div class="form-group">
+                        <label>Reason</label>
+                        <input type="text" id="discountReason" placeholder="e.g., Expiring soon, Clearance">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeDailyDiscount()">Cancel</button>
+                    <button class="btn btn-primary" onclick="submitDailyDiscount()">Apply Discount</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manager Authorization Modal -->
+        <div id="managerAuthModal" class="modal-overlay">
+            <div class="modal" style="max-width: 400px;">
+                <div class="modal-header">
+                    <h2>Manager Authorization Required</h2>
+                    <button class="close-btn" onclick="closeManagerAuth()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="auth-required">
+                        <h4>This action requires manager approval</h4>
+                        <p id="authActionDescription">A manager or business owner must authorize this action.</p>
+                    </div>
+                    <div class="form-group">
+                        <label>Manager Username</label>
+                        <input type="text" id="managerUsername" placeholder="Enter manager username">
+                    </div>
+                    <div class="form-group">
+                        <label>Manager Password</label>
+                        <input type="password" id="managerPassword" placeholder="Enter manager password">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeManagerAuth()">Cancel</button>
+                    <button class="btn btn-primary" onclick="verifyManagerAuth()">Authorize</button>
                 </div>
             </div>
         </div>
@@ -1161,9 +1513,12 @@
                 </div>
 
                 <!-- Actions -->
-                <div style="display: flex; gap: 15px; justify-content: flex-end;">
-                    <button class="btn btn-secondary" onclick="showTab('till', event)" style="padding: 15px 30px; font-size: 16px;">Cancel</button>
-                    <button class="btn btn-primary" onclick="completeCashUp()" style="padding: 15px 30px; font-size: 16px; background: #4caf50; border: none;">✓ Complete Cash Up & Close Till</button>
+                <div style="display: flex; gap: 15px; justify-content: space-between; flex-wrap: wrap;">
+                    <button class="btn btn-secondary manager-only" onclick="dailyTillReset()" style="padding: 15px 30px; font-size: 16px; background: #ff9800; color: white; border: none;">Daily Reset (Start Fresh)</button>
+                    <div style="display: flex; gap: 15px;">
+                        <button class="btn btn-secondary" onclick="showTab('till', event)" style="padding: 15px 30px; font-size: 16px;">Cancel</button>
+                        <button class="btn btn-primary" onclick="completeCashUp()" style="padding: 15px 30px; font-size: 16px; background: #4caf50; border: none;">✓ Complete Cash Up & Close Till</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1192,10 +1547,10 @@
                                 <span class="search-icon">🔍</span>
                             </div>
                             <div class="header-actions">
+                                <button class="btn btn-secondary" onclick="showDailyDiscountModal()">Daily Discounts</button>
                                 <button class="btn btn-secondary" onclick="exportProducts()">Export Products</button>
                                 <button class="btn btn-secondary" onclick="importProducts()">Import Products</button>
                                 <button class="btn btn-primary" onclick="showAddProduct()">Add Product</button>
-                                <button class="btn btn-secondary">Price Lists</button>
                             </div>
                         </div>
 
@@ -3599,6 +3954,777 @@
                 showNotification('Error exporting customers', 'error');
             }
         }
+
+        // ========== SPLIT PAYMENT FUNCTIONS ==========
+
+        let splitPaymentMode = false;
+
+        function toggleSplitPayment() {
+            splitPaymentMode = !splitPaymentMode;
+            const section = document.getElementById('splitPaymentSection');
+            const btn = document.getElementById('splitPaymentBtn');
+
+            if (splitPaymentMode) {
+                section.classList.add('active');
+                btn.classList.add('selected');
+                // Deselect other payment buttons
+                document.querySelectorAll('.payment-btn:not(#splitPaymentBtn)').forEach(b => b.classList.remove('selected'));
+                updateSplitRemaining();
+            } else {
+                section.classList.remove('active');
+                btn.classList.remove('selected');
+                document.getElementById('splitCashAmount').value = '0';
+                document.getElementById('splitCardAmount').value = '0';
+            }
+        }
+
+        function updateSplitRemaining() {
+            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 1.15;
+            const cash = parseFloat(document.getElementById('splitCashAmount').value) || 0;
+            const card = parseFloat(document.getElementById('splitCardAmount').value) || 0;
+            const remaining = total - cash - card;
+
+            document.getElementById('splitRemainingAmount').textContent = `R ${remaining.toFixed(2)}`;
+            document.getElementById('splitRemainingAmount').style.color = remaining <= 0.01 ? '#4caf50' : '#dc3545';
+        }
+
+        // ========== STOCK MANAGEMENT FUNCTIONS ==========
+
+        async function loadStock() {
+            try {
+                const lowStockOnly = document.getElementById('lowStockOnly')?.checked || false;
+                const category = document.getElementById('stockFilterCategory')?.value || '';
+
+                let url = `${API_URL}/pos/stock?`;
+                if (lowStockOnly) url += 'low_stock_only=true&';
+                if (category) url += `category=${encodeURIComponent(category)}`;
+
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const result = await response.json();
+                displayStock(result.products || []);
+            } catch (error) {
+                console.error('Error loading stock:', error);
+                showNotification('Error loading stock data', 'error');
+            }
+        }
+
+        function displayStock(stockItems) {
+            const tbody = document.getElementById('stockTableBody');
+            if (!tbody) return;
+
+            tbody.innerHTML = stockItems.map(item => {
+                let statusClass = 'ok';
+                let statusText = 'OK';
+                if (item.stock_quantity <= 0) {
+                    statusClass = 'out';
+                    statusText = 'Out of Stock';
+                } else if (item.stock_quantity <= item.min_stock_level) {
+                    statusClass = 'low';
+                    statusText = 'Low Stock';
+                }
+
+                const stockValue = item.stock_quantity * (item.cost_price || 0);
+
+                return `
+                    <tr class="${statusClass === 'out' ? 'out-of-stock' : statusClass === 'low' ? 'low-stock' : ''}">
+                        <td>${item.product_code}</td>
+                        <td>${item.product_name}</td>
+                        <td>${item.category || '-'}</td>
+                        <td>${item.stock_quantity}</td>
+                        <td>${item.min_stock_level}</td>
+                        <td><span class="stock-badge ${statusClass}">${statusText}</span></td>
+                        <td>R ${parseFloat(item.unit_price).toFixed(2)}</td>
+                        <td>R ${stockValue.toFixed(2)}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="showQuickAdjust(${item.id}, '${item.product_name}', ${item.stock_quantity})">Adjust</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function filterStock() {
+            loadStock();
+        }
+
+        function showStockAdjustModal() {
+            // Populate product dropdown
+            const select = document.getElementById('adjustProductId');
+            select.innerHTML = '<option value="">Select a product...</option>' +
+                products.map(p => `<option value="${p.id}">${p.product_code} - ${p.product_name}</option>`).join('');
+
+            document.getElementById('currentStockDisplay').textContent = '-';
+            document.getElementById('adjustQuantity').value = '0';
+            document.getElementById('adjustReason').value = '';
+            document.getElementById('stockAdjustModal').style.display = 'flex';
+        }
+
+        function closeStockAdjust() {
+            document.getElementById('stockAdjustModal').style.display = 'none';
+        }
+
+        function loadProductStock() {
+            const productId = document.getElementById('adjustProductId').value;
+            if (!productId) {
+                document.getElementById('currentStockDisplay').textContent = '-';
+                return;
+            }
+
+            const product = products.find(p => p.id == productId);
+            if (product) {
+                document.getElementById('currentStockDisplay').textContent = product.stock_quantity;
+            }
+        }
+
+        async function submitStockAdjust() {
+            const productId = document.getElementById('adjustProductId').value;
+            const adjustType = document.getElementById('adjustType').value;
+            const quantity = document.getElementById('adjustQuantity').value;
+            const reason = document.getElementById('adjustReason').value;
+
+            if (!productId || !quantity) {
+                showNotification('Please select a product and enter quantity', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/pos/stock/adjust`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        product_id: parseInt(productId),
+                        adjustment_type: adjustType,
+                        quantity: parseInt(quantity),
+                        reason: reason
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification(`Stock adjusted: ${result.quantity_before} → ${result.quantity_after}`, 'success');
+                    closeStockAdjust();
+                    loadProducts();
+                    loadStock();
+                } else {
+                    showNotification(result.error || 'Failed to adjust stock', 'error');
+                }
+            } catch (error) {
+                showNotification('Error adjusting stock: ' + error.message, 'error');
+            }
+        }
+
+        function showQuickAdjust(productId, productName, currentStock) {
+            document.getElementById('adjustProductId').value = productId;
+            document.getElementById('currentStockDisplay').textContent = currentStock;
+            document.getElementById('stockAdjustModal').style.display = 'flex';
+        }
+
+        function showStockTakeModal() {
+            alert('Stock Take feature - Coming soon!\nThis will allow you to scan or enter counts for all products.');
+        }
+
+        // ========== SALE SEARCH FUNCTIONS ==========
+
+        let selectedSale = null;
+        let searchDebounce = null;
+
+        function openSaleSearch() {
+            document.getElementById('saleSearchModal').style.display = 'flex';
+            document.getElementById('saleSearchQuery').focus();
+        }
+
+        function closeSaleSearch() {
+            document.getElementById('saleSearchModal').style.display = 'none';
+            document.getElementById('saleSearchResults').innerHTML = '<p style="text-align: center; color: #999;">Enter search criteria and click Search</p>';
+        }
+
+        function debounceSearchSales() {
+            clearTimeout(searchDebounce);
+            searchDebounce = setTimeout(searchSales, 500);
+        }
+
+        async function searchSales() {
+            const query = document.getElementById('saleSearchQuery').value;
+            const date = document.getElementById('saleSearchDate').value;
+
+            if (!query && !date) {
+                showNotification('Please enter search criteria', 'error');
+                return;
+            }
+
+            const resultsDiv = document.getElementById('saleSearchResults');
+            resultsDiv.innerHTML = '<p style="text-align: center; color: #999;">Searching...</p>';
+
+            try {
+                let url = `${API_URL}/pos/sales/search?`;
+                if (query) url += `query=${encodeURIComponent(query)}&`;
+                if (date) url += `date_from=${date}&date_to=${date}`;
+
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const result = await response.json();
+
+                if (result.sales && result.sales.length > 0) {
+                    resultsDiv.innerHTML = result.sales.map(sale => `
+                        <div class="sale-result-card" onclick="viewSaleDetail(${sale.id})">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <strong>${sale.sale_number}</strong>
+                                    <div style="font-size: 12px; color: #666;">
+                                        ${new Date(sale.created_at).toLocaleString()} | ${sale.cashier_name || 'Unknown'}
+                                    </div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-weight: bold; color: #667eea;">R ${parseFloat(sale.total_amount).toFixed(2)}</div>
+                                    <div style="font-size: 12px;">${sale.payment_method}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    resultsDiv.innerHTML = '<p style="text-align: center; color: #999;">No sales found</p>';
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+
+        async function viewSaleDetail(saleId) {
+            try {
+                const response = await fetch(`${API_URL}/pos/sales/${saleId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const result = await response.json();
+                selectedSale = result;
+
+                const content = document.getElementById('saleDetailContent');
+                content.innerHTML = `
+                    <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div><strong>Sale #:</strong> ${result.sale.sale_number}</div>
+                            <div><strong>Date:</strong> ${new Date(result.sale.created_at).toLocaleString()}</div>
+                            <div><strong>Cashier:</strong> ${result.sale.cashier_name}</div>
+                            <div><strong>Payment:</strong> ${result.sale.payment_method}</div>
+                            ${result.sale.customer_name ? `<div><strong>Customer:</strong> ${result.sale.customer_name}</div>` : ''}
+                        </div>
+                    </div>
+                    <table class="products-table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Qty</th>
+                                <th>Price</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${result.items.map(item => `
+                                <tr>
+                                    <td>${item.product_name}</td>
+                                    <td>${item.quantity}</td>
+                                    <td>R ${parseFloat(item.unit_price).toFixed(2)}</td>
+                                    <td>R ${parseFloat(item.total_price).toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    <div style="margin-top: 15px; text-align: right;">
+                        <div>Subtotal: R ${parseFloat(result.sale.subtotal).toFixed(2)}</div>
+                        <div>VAT: R ${parseFloat(result.sale.vat_amount).toFixed(2)}</div>
+                        <div style="font-size: 18px; font-weight: bold; color: #667eea;">Total: R ${parseFloat(result.sale.total_amount).toFixed(2)}</div>
+                    </div>
+                `;
+
+                closeSaleSearch();
+                document.getElementById('saleDetailModal').style.display = 'flex';
+            } catch (error) {
+                showNotification('Error loading sale details: ' + error.message, 'error');
+            }
+        }
+
+        function closeSaleDetail() {
+            document.getElementById('saleDetailModal').style.display = 'none';
+            selectedSale = null;
+        }
+
+        function reprintReceipt() {
+            if (!selectedSale) return;
+            printReceipt(selectedSale.sale, selectedSale.items);
+        }
+
+        function showReturnModal() {
+            if (!selectedSale) return;
+            // Check if manager auth is needed
+            if (userRole === 'cashier') {
+                pendingAuthAction = { type: 'return', saleId: selectedSale.sale.id };
+                document.getElementById('authActionDescription').textContent = 'Returns require manager authorization.';
+                document.getElementById('managerAuthModal').style.display = 'flex';
+            } else {
+                processReturn(selectedSale.sale.id);
+            }
+        }
+
+        async function processReturn(saleId, authorizedBy = null) {
+            const items = selectedSale.items.map(item => ({
+                product_id: item.product_id,
+                quantity: item.quantity
+            }));
+
+            try {
+                const response = await fetch(`${API_URL}/pos/sales/${saleId}/return`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        items: items,
+                        reason: 'Customer return',
+                        authorized_by_user_id: authorizedBy
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification(`Return processed: ${result.returnNumber} - Refund: R ${result.totalRefund.toFixed(2)}`, 'success');
+                    closeSaleDetail();
+                    loadProducts();
+                } else {
+                    showNotification(result.error || 'Failed to process return', 'error');
+                }
+            } catch (error) {
+                showNotification('Error processing return: ' + error.message, 'error');
+            }
+        }
+
+        // ========== DAILY DISCOUNT FUNCTIONS ==========
+
+        function showDailyDiscountModal() {
+            const select = document.getElementById('discountProductId');
+            select.innerHTML = '<option value="">Select a product...</option>' +
+                products.map(p => `<option value="${p.id}">${p.product_code} - ${p.product_name} (R ${parseFloat(p.unit_price).toFixed(2)})</option>`).join('');
+
+            document.getElementById('originalPriceDisplay').textContent = 'R 0.00';
+            document.getElementById('discountPrice').value = '';
+            document.getElementById('discountReason').value = '';
+            document.getElementById('discountEndDate').value = '';
+            document.getElementById('dailyDiscountModal').style.display = 'flex';
+        }
+
+        function closeDailyDiscount() {
+            document.getElementById('dailyDiscountModal').style.display = 'none';
+        }
+
+        function loadProductPrice() {
+            const productId = document.getElementById('discountProductId').value;
+            if (!productId) {
+                document.getElementById('originalPriceDisplay').textContent = 'R 0.00';
+                return;
+            }
+
+            const product = products.find(p => p.id == productId);
+            if (product) {
+                document.getElementById('originalPriceDisplay').textContent = `R ${parseFloat(product.unit_price).toFixed(2)}`;
+            }
+        }
+
+        async function submitDailyDiscount() {
+            const productId = document.getElementById('discountProductId').value;
+            const discountPrice = document.getElementById('discountPrice').value;
+            const reason = document.getElementById('discountReason').value;
+            const endDate = document.getElementById('discountEndDate').value;
+
+            if (!productId || !discountPrice) {
+                showNotification('Please select a product and enter discount price', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/pos/daily-discounts`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        product_id: parseInt(productId),
+                        discount_price: parseFloat(discountPrice),
+                        reason: reason,
+                        end_date: endDate || null
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification(`Daily discount applied: ${result.product_name} now R ${result.discount_price}`, 'success');
+                    closeDailyDiscount();
+                    loadProducts();
+                } else {
+                    showNotification(result.error || 'Failed to apply discount', 'error');
+                }
+            } catch (error) {
+                showNotification('Error applying discount: ' + error.message, 'error');
+            }
+        }
+
+        // ========== MANAGER AUTHORIZATION FUNCTIONS ==========
+
+        let pendingAuthAction = null;
+
+        function closeManagerAuth() {
+            document.getElementById('managerAuthModal').style.display = 'none';
+            document.getElementById('managerUsername').value = '';
+            document.getElementById('managerPassword').value = '';
+            pendingAuthAction = null;
+        }
+
+        async function verifyManagerAuth() {
+            const username = document.getElementById('managerUsername').value;
+            const password = document.getElementById('managerPassword').value;
+
+            if (!username || !password) {
+                showNotification('Please enter manager credentials', 'error');
+                return;
+            }
+
+            try {
+                // Verify manager credentials
+                const response = await fetch(`${API_URL}/auth/verify-manager`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const result = await response.json();
+
+                if (result.success && result.authorized) {
+                    closeManagerAuth();
+
+                    // Execute pending action
+                    if (pendingAuthAction) {
+                        if (pendingAuthAction.type === 'return') {
+                            processReturn(pendingAuthAction.saleId, result.userId);
+                        } else if (pendingAuthAction.type === 'price_override') {
+                            // Handle price override
+                        }
+                    }
+                } else {
+                    showNotification('Invalid manager credentials or insufficient permissions', 'error');
+                }
+            } catch (error) {
+                showNotification('Error verifying credentials: ' + error.message, 'error');
+            }
+        }
+
+        // ========== DAILY TILL RESET FUNCTIONS ==========
+
+        async function dailyTillReset() {
+            if (!confirm('This will close the current till session and start fresh for the new day.\n\nAll sales data will be preserved for reports.\n\nContinue?')) {
+                return;
+            }
+
+            try {
+                // Get current till
+                const tillsResponse = await fetch(`${API_URL}/pos/tills`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const tillsResult = await tillsResponse.json();
+
+                if (!tillsResult.tills || tillsResult.tills.length === 0) {
+                    showNotification('No till found', 'error');
+                    return;
+                }
+
+                const response = await fetch(`${API_URL}/pos/till/daily-reset`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        till_id: tillsResult.tills[0].id,
+                        notes: 'Daily reset'
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification('Till reset successfully. Float: R ' + result.float_amount, 'success');
+                    currentSession = null;
+                    document.getElementById('sessionStatus').textContent = 'No Session';
+                    checkSession();
+                } else {
+                    showNotification(result.error || 'Failed to reset till', 'error');
+                }
+            } catch (error) {
+                showNotification('Error resetting till: ' + error.message, 'error');
+            }
+        }
+
+        // ========== RECEIPT PRINTING FUNCTIONS ==========
+
+        async function printReceipt(sale, items) {
+            // Get company settings for printer
+            try {
+                const response = await fetch(`${API_URL}/pos/settings`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const settings = await response.json();
+
+                // Build receipt content
+                const receiptContent = buildReceiptContent(sale, items, settings);
+
+                // Try to print (browser print dialog as fallback)
+                const printWindow = window.open('', '_blank', 'width=300,height=600');
+                printWindow.document.write(`
+                    <html>
+                    <head>
+                        <title>Receipt</title>
+                        <style>
+                            body { font-family: 'Courier New', monospace; font-size: 12px; width: 280px; margin: 0 auto; }
+                            .center { text-align: center; }
+                            .bold { font-weight: bold; }
+                            .line { border-bottom: 1px dashed #000; margin: 5px 0; }
+                            .row { display: flex; justify-content: space-between; }
+                            .total { font-size: 14px; font-weight: bold; }
+                        </style>
+                    </head>
+                    <body>
+                        ${receiptContent}
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
+                printWindow.print();
+
+            } catch (error) {
+                console.error('Print error:', error);
+                showNotification('Error printing receipt', 'error');
+            }
+        }
+
+        function buildReceiptContent(sale, items, settings) {
+            const header = settings?.receipt_header || 'Thank you for your purchase!';
+            const footer = settings?.receipt_footer || 'Please come again!';
+
+            let html = `
+                <div class="center bold" style="font-size: 16px;">CHECKOUT CHARLIE</div>
+                <div class="center">${header}</div>
+                <div class="line"></div>
+                <div>Sale #: ${sale.sale_number}</div>
+                <div>Date: ${new Date(sale.created_at).toLocaleString()}</div>
+                <div>Cashier: ${sale.cashier_name || 'N/A'}</div>
+                <div class="line"></div>
+            `;
+
+            items.forEach(item => {
+                html += `
+                    <div>${item.product_name}</div>
+                    <div class="row">
+                        <span>${item.quantity} x R ${parseFloat(item.unit_price).toFixed(2)}</span>
+                        <span>R ${parseFloat(item.total_price).toFixed(2)}</span>
+                    </div>
+                `;
+            });
+
+            html += `
+                <div class="line"></div>
+                <div class="row"><span>Subtotal:</span><span>R ${parseFloat(sale.subtotal).toFixed(2)}</span></div>
+                <div class="row"><span>VAT (15%):</span><span>R ${parseFloat(sale.vat_amount).toFixed(2)}</span></div>
+                <div class="line"></div>
+                <div class="row total"><span>TOTAL:</span><span>R ${parseFloat(sale.total_amount).toFixed(2)}</span></div>
+                <div class="row"><span>Payment:</span><span>${sale.payment_method}</span></div>
+                <div class="line"></div>
+                <div class="center">${footer}</div>
+            `;
+
+            return html;
+        }
+
+        // ========== UPDATE CART WITH QUANTITY INPUT ==========
+
+        function updateCartWithQtyInput() {
+            const container = document.getElementById('cartItems');
+
+            if (cart.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-cart">
+                        <p>Cart is empty</p>
+                        <p style="font-size: 14px;">Scan or click products to add</p>
+                    </div>
+                `;
+                document.getElementById('checkoutBtn').disabled = true;
+                return;
+            }
+
+            container.innerHTML = '';
+
+            cart.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'cart-item';
+                itemDiv.innerHTML = `
+                    <div class="cart-item-header">
+                        <div class="item-name">${item.name}</div>
+                        <button class="item-remove" onclick="removeItem(${item.productId})">✕</button>
+                    </div>
+                    <div class="cart-item-controls">
+                        <div class="qty-controls">
+                            <button class="qty-btn" onclick="updateQty(${item.productId}, -1)">-</button>
+                            <input type="number" class="qty-input" value="${item.quantity}" min="1" max="${item.maxStock}"
+                                   onchange="setQty(${item.productId}, this.value)" onclick="this.select()">
+                            <button class="qty-btn" onclick="updateQty(${item.productId}, 1)">+</button>
+                        </div>
+                        <div class="item-total">R ${(item.price * item.quantity).toFixed(2)}</div>
+                    </div>
+                `;
+                container.appendChild(itemDiv);
+            });
+
+            document.getElementById('checkoutBtn').disabled = !currentSession;
+            updateTotals();
+        }
+
+        function setQty(productId, newQty) {
+            const item = cart.find(i => i.productId === productId);
+            if (item) {
+                const qty = parseInt(newQty) || 1;
+                if (qty <= 0) {
+                    removeItem(productId);
+                } else if (qty > item.maxStock) {
+                    item.quantity = item.maxStock;
+                    showNotification('Maximum stock reached', 'error');
+                } else {
+                    item.quantity = qty;
+                }
+                updateCart();
+            }
+        }
+
+        function updateTotals() {
+            const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const vat = subtotal * 0.15;
+            const total = subtotal + vat;
+
+            document.getElementById('subtotal').textContent = `R ${subtotal.toFixed(2)}`;
+            document.getElementById('vat').textContent = `R ${vat.toFixed(2)}`;
+            document.getElementById('total').textContent = `R ${total.toFixed(2)}`;
+            document.getElementById('cartItemCount').textContent = `${cart.length} items`;
+
+            // Update split payment remaining if active
+            if (splitPaymentMode) {
+                updateSplitRemaining();
+            }
+        }
+
+        // ========== UPDATED CHECKOUT WITH SPLIT PAYMENT ==========
+
+        async function checkoutWithFeatures() {
+            if (cart.length === 0 || !currentSession) {
+                showNotification('Cart is empty or no session open', 'error');
+                return;
+            }
+
+            let payload;
+
+            if (splitPaymentMode) {
+                const cashAmount = parseFloat(document.getElementById('splitCashAmount').value) || 0;
+                const cardAmount = parseFloat(document.getElementById('splitCardAmount').value) || 0;
+                const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 1.15;
+
+                if (Math.abs(cashAmount + cardAmount - total) > 0.01) {
+                    showNotification('Split payment amounts must equal total', 'error');
+                    return;
+                }
+
+                payload = {
+                    tillSessionId: currentSession.id,
+                    items: cart.map(item => ({
+                        productId: item.productId,
+                        quantity: item.quantity
+                    })),
+                    payments: [
+                        { method: 'CASH', amount: cashAmount },
+                        { method: 'CARD', amount: cardAmount }
+                    ].filter(p => p.amount > 0)
+                };
+
+                try {
+                    const response = await fetch(`${API_URL}/pos/sales/split-payment`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        showNotification(`Sale completed! #${result.saleNumber}`, 'success');
+                        cart = [];
+                        updateCart();
+                        toggleSplitPayment();
+                        await loadProducts();
+                    } else {
+                        showNotification(result.error || 'Checkout failed', 'error');
+                    }
+                } catch (error) {
+                    showNotification('Checkout failed: ' + error.message, 'error');
+                }
+            } else {
+                // Regular checkout
+                checkout();
+            }
+        }
+
+        // ========== SHOW TAB UPDATE FOR STOCK ==========
+
+        const originalShowTab = showTab;
+        showTab = function(tab, evt) {
+            // Hide stock interface
+            const stockInterface = document.getElementById('stockInterface');
+            if (stockInterface) stockInterface.style.display = 'none';
+
+            if (tab === 'stock') {
+                document.getElementById('tillInterface').style.display = 'none';
+                document.getElementById('settingsLayout').style.display = 'none';
+                document.getElementById('reportsLayout').style.display = 'none';
+                document.getElementById('cashUpLayout').style.display = 'none';
+                stockInterface.style.display = 'block';
+
+                // Remove active from all tabs, add to stock
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                if (evt && evt.target) evt.target.classList.add('active');
+
+                // Populate category filter
+                const categorySelect = document.getElementById('stockFilterCategory');
+                if (categorySelect) {
+                    categorySelect.innerHTML = '<option value="">All Categories</option>' +
+                        Array.from(categories).filter(c => c !== 'all').map(c => `<option value="${c}">${c}</option>`).join('');
+                }
+
+                loadStock();
+            } else {
+                originalShowTab(tab, evt);
+            }
+        };
     </script>
 </body>
 </html>

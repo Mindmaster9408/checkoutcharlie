@@ -553,4 +553,955 @@ router.get('/sales', (req, res) => {
   });
 });
 
+// ========== SALE SEARCH & LOOKUP ==========
+
+// Search sales by sale number, date, customer, or amount
+router.get('/sales/search', (req, res) => {
+  const companyId = req.user.companyId;
+  const { query: searchQuery, date_from, date_to, sale_number } = req.query;
+
+  let sql = `
+    SELECT s.*, u.full_name as cashier_name, c.name as customer_name,
+           ts.till_id, t.till_name
+    FROM sales s
+    JOIN users u ON s.user_id = u.id
+    LEFT JOIN customers c ON s.customer_id = c.id
+    JOIN till_sessions ts ON s.till_session_id = ts.id
+    JOIN tills t ON ts.till_id = t.id
+    WHERE s.company_id = ?
+  `;
+  const params = [companyId];
+
+  if (sale_number) {
+    sql += ' AND s.sale_number LIKE ?';
+    params.push(`%${sale_number}%`);
+  }
+
+  if (searchQuery) {
+    sql += ' AND (s.sale_number LIKE ? OR c.name LIKE ? OR CAST(s.total_amount AS TEXT) LIKE ?)';
+    params.push(`%${searchQuery}%`, `%${searchQuery}%`, `%${searchQuery}%`);
+  }
+
+  if (date_from) {
+    sql += ' AND DATE(s.created_at) >= ?';
+    params.push(date_from);
+  }
+
+  if (date_to) {
+    sql += ' AND DATE(s.created_at) <= ?';
+    params.push(date_to);
+  }
+
+  sql += ' ORDER BY s.created_at DESC LIMIT 100';
+
+  db.all(sql, params, (err, sales) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+    res.json({ sales });
+  });
+});
+
+// Get sale details with items
+router.get('/sales/:id', (req, res) => {
+  const { id } = req.params;
+  const companyId = req.user.companyId;
+
+  db.get(`
+    SELECT s.*, u.full_name as cashier_name, c.name as customer_name,
+           c.contact_number as customer_phone, c.email as customer_email,
+           ts.till_id, t.till_name
+    FROM sales s
+    JOIN users u ON s.user_id = u.id
+    LEFT JOIN customers c ON s.customer_id = c.id
+    JOIN till_sessions ts ON s.till_session_id = ts.id
+    JOIN tills t ON ts.till_id = t.id
+    WHERE s.id = ? AND s.company_id = ?
+  `, [id, companyId], (err, sale) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (!sale) {
+      return res.status(404).json({ error: 'Sale not found' });
+    }
+
+    // Get sale items
+    db.all(`
+      SELECT si.*, p.product_name, p.product_code, p.barcode
+      FROM sale_items si
+      JOIN products p ON si.product_id = p.id
+      WHERE si.sale_id = ?
+    `, [id], (err, items) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+
+      res.json({ sale, items });
+    });
+  });
+});
+
+// ========== SALE RETURNS ==========
+
+// Process a return
+router.post('/sales/:id/return', requirePermission('POS.VOID_SALE'), (req, res) => {
+  const { id } = req.params;
+  const { items, reason, authorized_by_user_id } = req.body;
+  const companyId = req.user.companyId;
+  const userId = req.user.userId;
+  const userRole = req.user.role;
+
+  // Get original sale
+  db.get('SELECT * FROM sales WHERE id = ? AND company_id = ?', [id, companyId], (err, sale) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (!sale) {
+      return res.status(404).json({ error: 'Sale not found' });
+    }
+
+    // Get original sale items
+    db.all('SELECT * FROM sale_items WHERE sale_id = ?', [id], (err, saleItems) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+
+      // Validate return items
+      let totalRefund = 0;
+      const returnItems = [];
+
+      for (const returnItem of items) {
+        const originalItem = saleItems.find(si => si.product_id === returnItem.product_id);
+
+        if (!originalItem) {
+          return res.status(400).json({ error: `Product ${returnItem.product_id} not in original sale` });
+        }
+
+        if (returnItem.quantity > originalItem.quantity) {
+          return res.status(400).json({ error: `Cannot return more than purchased` });
+        }
+
+        const refundAmount = (originalItem.unit_price * returnItem.quantity);
+        totalRefund += refundAmount;
+
+        returnItems.push({
+          sale_item_id: originalItem.id,
+          product_id: returnItem.product_id,
+          quantity: returnItem.quantity,
+          refund_amount: refundAmount
+        });
+      }
+
+      // Generate return number
+      const returnNumber = `RET-${Date.now()}`;
+
+      // Determine authorizer - cashiers need manager authorization
+      let authorizerId = authorized_by_user_id || userId;
+      if (userRole === 'cashier' && !authorized_by_user_id) {
+        return res.status(403).json({ error: 'Manager authorization required for returns' });
+      }
+
+      // Create return record
+      db.run(
+        `INSERT INTO sale_returns (company_id, original_sale_id, return_number, total_refund, reason, processed_by_user_id, authorized_by_user_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [companyId, id, returnNumber, totalRefund, reason, userId, authorizerId],
+        function(err) {
+          if (err) {
+            return res.status(500).json({ error: 'Failed to create return' });
+          }
+
+          const returnId = this.lastID;
+
+          // Insert return items and restore stock
+          const stmt = db.prepare('INSERT INTO sale_return_items (return_id, sale_item_id, product_id, quantity_returned, refund_amount) VALUES (?, ?, ?, ?, ?)');
+          const stockStmt = db.prepare('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ? AND company_id = ?');
+
+          returnItems.forEach(item => {
+            stmt.run(returnId, item.sale_item_id, item.product_id, item.quantity, item.refund_amount);
+            stockStmt.run(item.quantity, item.product_id, companyId);
+          });
+
+          stmt.finalize();
+          stockStmt.finalize();
+
+          // Log audit
+          db.run(
+            `INSERT INTO audit_trail (company_id, user_id, event_type, event_category, event_data)
+             VALUES (?, ?, ?, ?, ?)`,
+            [companyId, userId, 'sale_return', 'sales', JSON.stringify({ returnNumber, originalSaleId: id, totalRefund, authorizedBy: authorizerId })]
+          );
+
+          res.json({
+            success: true,
+            returnId,
+            returnNumber,
+            totalRefund,
+            items: returnItems
+          });
+        }
+      );
+    });
+  });
+});
+
+// ========== SPLIT PAYMENTS ==========
+
+// Create sale with split payment
+router.post('/sales/split-payment', (req, res) => {
+  const { tillSessionId, items, payments, customerId } = req.body;
+  const userId = req.user.userId;
+  const companyId = req.user.companyId;
+
+  if (!items || items.length === 0) {
+    return res.status(400).json({ error: 'No items in sale' });
+  }
+
+  if (!payments || payments.length === 0) {
+    return res.status(400).json({ error: 'No payments provided' });
+  }
+
+  // Verify till session
+  db.get('SELECT * FROM till_sessions WHERE id = ? AND company_id = ? AND status = ?', [tillSessionId, companyId, 'open'], (err, session) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (!session) {
+      return res.status(400).json({ error: 'Till session not found or not open' });
+    }
+
+    // Get product details
+    const productIds = items.map(item => item.productId);
+    const placeholders = productIds.map((_, i) => `$${i + 2}`).join(',');
+
+    db.all(`SELECT * FROM products WHERE company_id = $1 AND id IN (${placeholders})`, [companyId, ...productIds], (err, products) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+
+      // Calculate totals
+      let subtotal = 0;
+      const saleItems = [];
+
+      for (const item of items) {
+        const product = products.find(p => p.id === item.productId);
+
+        if (!product) {
+          return res.status(400).json({ error: `Product ${item.productId} not found` });
+        }
+
+        if (product.stock_quantity < item.quantity) {
+          return res.status(400).json({ error: `Insufficient stock for ${product.product_name}` });
+        }
+
+        // Check for daily discount
+        const effectivePrice = item.overridePrice || product.unit_price;
+        const itemTotal = effectivePrice * item.quantity;
+        subtotal += itemTotal;
+
+        saleItems.push({
+          productId: product.id,
+          quantity: item.quantity,
+          unitPrice: effectivePrice,
+          totalPrice: itemTotal
+        });
+      }
+
+      const vatAmount = subtotal * 0.15;
+      const totalAmount = subtotal + vatAmount;
+
+      // Validate payments total
+      const totalPayments = payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+      if (Math.abs(totalPayments - totalAmount) > 0.01) {
+        return res.status(400).json({
+          error: 'Payment amounts do not match total',
+          expected: totalAmount,
+          received: totalPayments
+        });
+      }
+
+      // Format payment method string
+      const paymentMethod = payments.map(p => `${p.method}:${p.amount}`).join(',');
+
+      const saleNumber = `SALE-${Date.now()}`;
+
+      // Insert sale
+      db.run(
+        `INSERT INTO sales (company_id, sale_number, till_session_id, user_id, customer_id, subtotal, vat_amount, total_amount, payment_method)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [companyId, saleNumber, tillSessionId, userId, customerId || null, subtotal, vatAmount, totalAmount, paymentMethod],
+        function(err) {
+          if (err) {
+            return res.status(500).json({ error: 'Failed to create sale' });
+          }
+
+          const saleId = this.lastID;
+
+          // Insert sale items and update stock
+          const stmt = db.prepare('INSERT INTO sale_items (company_id, sale_id, product_id, quantity, unit_price, total_price) VALUES (?, ?, ?, ?, ?, ?)');
+          const updateStmt = db.prepare('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ? AND company_id = ?');
+
+          saleItems.forEach(item => {
+            stmt.run(companyId, saleId, item.productId, item.quantity, item.unitPrice, item.totalPrice);
+            updateStmt.run(item.quantity, item.productId, companyId);
+          });
+
+          stmt.finalize();
+          updateStmt.finalize();
+
+          res.json({
+            saleId,
+            saleNumber,
+            subtotal,
+            vatAmount,
+            totalAmount,
+            payments
+          });
+        }
+      );
+    });
+  });
+});
+
+// ========== STOCK MANAGEMENT ==========
+
+// Get stock levels
+router.get('/stock', (req, res) => {
+  const companyId = req.user.companyId;
+  const { low_stock_only, category } = req.query;
+
+  let query = `
+    SELECT id, product_code, product_name, category, stock_quantity, min_stock_level, unit_price, cost_price
+    FROM products
+    WHERE company_id = ? AND is_active = 1
+  `;
+  const params = [companyId];
+
+  if (low_stock_only === 'true') {
+    query += ' AND stock_quantity <= min_stock_level';
+  }
+
+  if (category) {
+    query += ' AND category = ?';
+    params.push(category);
+  }
+
+  query += ' ORDER BY product_name';
+
+  db.all(query, params, (err, products) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+    res.json({ products });
+  });
+});
+
+// Adjust stock
+router.post('/stock/adjust', requirePermission('STOCK.ADJUST'), (req, res) => {
+  const { product_id, adjustment_type, quantity, reason, reference_number } = req.body;
+  const companyId = req.user.companyId;
+  const userId = req.user.userId;
+
+  if (!product_id || !adjustment_type || quantity === undefined) {
+    return res.status(400).json({ error: 'Product ID, adjustment type, and quantity required' });
+  }
+
+  // Get current stock
+  db.get('SELECT * FROM products WHERE id = ? AND company_id = ?', [product_id, companyId], (err, product) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    const quantityBefore = product.stock_quantity;
+    let quantityChange = parseInt(quantity);
+
+    // Adjust based on type
+    if (adjustment_type === 'remove' || adjustment_type === 'damage' || adjustment_type === 'theft') {
+      quantityChange = -Math.abs(quantityChange);
+    } else if (adjustment_type === 'add' || adjustment_type === 'restock' || adjustment_type === 'return') {
+      quantityChange = Math.abs(quantityChange);
+    } else if (adjustment_type === 'set') {
+      quantityChange = parseInt(quantity) - quantityBefore;
+    }
+
+    const quantityAfter = quantityBefore + quantityChange;
+
+    if (quantityAfter < 0) {
+      return res.status(400).json({ error: 'Cannot reduce stock below zero' });
+    }
+
+    // Update stock
+    db.run('UPDATE products SET stock_quantity = ? WHERE id = ? AND company_id = ?', [quantityAfter, product_id, companyId], (err) => {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to adjust stock' });
+      }
+
+      // Log adjustment
+      db.run(
+        `INSERT INTO stock_adjustments (company_id, product_id, adjustment_type, quantity_change, quantity_before, quantity_after, reason, reference_number, adjusted_by_user_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [companyId, product_id, adjustment_type, quantityChange, quantityBefore, quantityAfter, reason, reference_number, userId]
+      );
+
+      // Log audit
+      db.run(
+        `INSERT INTO audit_trail (company_id, user_id, event_type, event_category, event_data)
+         VALUES (?, ?, ?, ?, ?)`,
+        [companyId, userId, 'stock_adjustment', 'inventory', JSON.stringify({ product_id, adjustment_type, quantityChange, quantityBefore, quantityAfter })]
+      );
+
+      res.json({
+        success: true,
+        product_id,
+        quantity_before: quantityBefore,
+        quantity_after: quantityAfter,
+        change: quantityChange
+      });
+    });
+  });
+});
+
+// Bulk stock update (for stock take)
+router.post('/stock/bulk-update', requirePermission('STOCK.STOCK_TAKE'), (req, res) => {
+  const { items, reference_number } = req.body;
+  const companyId = req.user.companyId;
+  const userId = req.user.userId;
+
+  if (!items || items.length === 0) {
+    return res.status(400).json({ error: 'No items provided' });
+  }
+
+  const results = [];
+  let processed = 0;
+
+  items.forEach(item => {
+    db.get('SELECT * FROM products WHERE id = ? AND company_id = ?', [item.product_id, companyId], (err, product) => {
+      if (err || !product) {
+        results.push({ product_id: item.product_id, error: 'Product not found' });
+        processed++;
+        if (processed === items.length) {
+          return res.json({ results });
+        }
+        return;
+      }
+
+      const quantityBefore = product.stock_quantity;
+      const quantityAfter = parseInt(item.quantity);
+      const quantityChange = quantityAfter - quantityBefore;
+
+      db.run('UPDATE products SET stock_quantity = ? WHERE id = ? AND company_id = ?', [quantityAfter, item.product_id, companyId], (err) => {
+        if (err) {
+          results.push({ product_id: item.product_id, error: 'Failed to update' });
+        } else {
+          // Log adjustment
+          db.run(
+            `INSERT INTO stock_adjustments (company_id, product_id, adjustment_type, quantity_change, quantity_before, quantity_after, reason, reference_number, adjusted_by_user_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [companyId, item.product_id, 'stock_take', quantityChange, quantityBefore, quantityAfter, 'Stock take', reference_number, userId]
+          );
+
+          results.push({
+            product_id: item.product_id,
+            product_name: product.product_name,
+            quantity_before: quantityBefore,
+            quantity_after: quantityAfter,
+            variance: quantityChange
+          });
+        }
+
+        processed++;
+        if (processed === items.length) {
+          // Log audit
+          db.run(
+            `INSERT INTO audit_trail (company_id, user_id, event_type, event_category, event_data)
+             VALUES (?, ?, ?, ?, ?)`,
+            [companyId, userId, 'stock_take', 'inventory', JSON.stringify({ reference_number, items_count: items.length })]
+          );
+
+          res.json({ success: true, results });
+        }
+      });
+    });
+  });
+});
+
+// Get stock adjustment history
+router.get('/stock/history', (req, res) => {
+  const companyId = req.user.companyId;
+  const { product_id, limit = 50 } = req.query;
+
+  let query = `
+    SELECT sa.*, p.product_name, p.product_code, u.full_name as adjusted_by
+    FROM stock_adjustments sa
+    JOIN products p ON sa.product_id = p.id
+    LEFT JOIN users u ON sa.adjusted_by_user_id = u.id
+    WHERE sa.company_id = ?
+  `;
+  const params = [companyId];
+
+  if (product_id) {
+    query += ' AND sa.product_id = ?';
+    params.push(product_id);
+  }
+
+  query += ' ORDER BY sa.created_at DESC LIMIT ?';
+  params.push(parseInt(limit));
+
+  db.all(query, params, (err, history) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+    res.json({ history });
+  });
+});
+
+// ========== DAILY DISCOUNTS ==========
+
+// Get active daily discounts
+router.get('/daily-discounts', (req, res) => {
+  const companyId = req.user.companyId;
+
+  db.all(`
+    SELECT dd.*, p.product_name, p.product_code, p.unit_price as current_price,
+           u.full_name as created_by, au.full_name as approved_by
+    FROM product_daily_discounts dd
+    JOIN products p ON dd.product_id = p.id
+    LEFT JOIN users u ON dd.created_by_user_id = u.id
+    LEFT JOIN users au ON dd.approved_by_user_id = au.id
+    WHERE dd.company_id = ? AND dd.is_active = 1
+      AND CURRENT_DATE BETWEEN dd.start_date AND dd.end_date
+    ORDER BY dd.created_at DESC
+  `, [companyId], (err, discounts) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+    res.json({ discounts });
+  });
+});
+
+// Create daily discount
+router.post('/daily-discounts', requirePermission('POS.APPLY_DISCOUNT'), (req, res) => {
+  const { product_id, discount_price, reason, end_date } = req.body;
+  const companyId = req.user.companyId;
+  const userId = req.user.userId;
+
+  if (!product_id || discount_price === undefined) {
+    return res.status(400).json({ error: 'Product ID and discount price required' });
+  }
+
+  // Get product's current price
+  db.get('SELECT * FROM products WHERE id = ? AND company_id = ?', [product_id, companyId], (err, product) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    const today = new Date().toISOString().split('T')[0];
+    const endDateValue = end_date || today;
+
+    db.run(
+      `INSERT INTO product_daily_discounts (company_id, product_id, discount_price, original_price, reason, start_date, end_date, created_by_user_id, approved_by_user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [companyId, product_id, discount_price, product.unit_price, reason, today, endDateValue, userId, userId],
+      function(err) {
+        if (err) {
+          return res.status(500).json({ error: 'Failed to create discount' });
+        }
+
+        // Log audit
+        db.run(
+          `INSERT INTO audit_trail (company_id, user_id, event_type, event_category, event_data)
+           VALUES (?, ?, ?, ?, ?)`,
+          [companyId, userId, 'daily_discount_created', 'products', JSON.stringify({ product_id, discount_price, original_price: product.unit_price })]
+        );
+
+        res.json({
+          success: true,
+          discount_id: this.lastID,
+          product_name: product.product_name,
+          original_price: product.unit_price,
+          discount_price
+        });
+      }
+    );
+  });
+});
+
+// Deactivate daily discount
+router.delete('/daily-discounts/:id', requirePermission('POS.APPLY_DISCOUNT'), (req, res) => {
+  const { id } = req.params;
+  const companyId = req.user.companyId;
+
+  db.run('UPDATE product_daily_discounts SET is_active = 0 WHERE id = ? AND company_id = ?', [id, companyId], (err) => {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to remove discount' });
+    }
+    res.json({ success: true });
+  });
+});
+
+// ========== PRICE OVERRIDES ==========
+
+// Request price override (for manager authorization)
+router.post('/price-override', (req, res) => {
+  const { product_id, original_price, override_price, reason, authorized_by_user_id } = req.body;
+  const companyId = req.user.companyId;
+  const userId = req.user.userId;
+  const userRole = req.user.role;
+
+  if (!product_id || override_price === undefined || !authorized_by_user_id) {
+    return res.status(400).json({ error: 'Product ID, override price, and authorizer required' });
+  }
+
+  // Cashiers must have manager authorization
+  if (userRole === 'cashier') {
+    // Verify authorizer is a manager/admin/owner
+    db.get(`
+      SELECT uca.role FROM user_company_access uca
+      WHERE uca.user_id = ? AND uca.company_id = ?
+    `, [authorized_by_user_id, companyId], (err, authorizer) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+
+      if (!authorizer || !['admin', 'business_owner', 'accountant'].includes(authorizer.role)) {
+        return res.status(403).json({ error: 'Invalid authorizer - must be manager or owner' });
+      }
+
+      // Create override record
+      createOverride();
+    });
+  } else {
+    createOverride();
+  }
+
+  function createOverride() {
+    db.run(
+      `INSERT INTO price_overrides (company_id, product_id, original_price, override_price, reason, authorized_by_user_id, cashier_user_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [companyId, product_id, original_price, override_price, reason, authorized_by_user_id, userId],
+      function(err) {
+        if (err) {
+          return res.status(500).json({ error: 'Failed to create override' });
+        }
+
+        // Log audit
+        db.run(
+          `INSERT INTO audit_trail (company_id, user_id, event_type, event_category, event_data)
+           VALUES (?, ?, ?, ?, ?)`,
+          [companyId, userId, 'price_override', 'sales', JSON.stringify({ product_id, original_price, override_price, authorized_by: authorized_by_user_id })]
+        );
+
+        res.json({
+          success: true,
+          override_id: this.lastID
+        });
+      }
+    );
+  }
+});
+
+// ========== DAILY TILL RESET ==========
+
+// Reset till for new day (closes current session, starts fresh)
+router.post('/till/daily-reset', requirePermission('TILL.CLOSE_SESSION'), (req, res) => {
+  const { till_id, notes } = req.body;
+  const companyId = req.user.companyId;
+  const userId = req.user.userId;
+  const userRole = req.user.role;
+
+  // Only admins and above can do daily reset
+  if (!['admin', 'business_owner', 'accountant'].includes(userRole)) {
+    return res.status(403).json({ error: 'Only managers can perform daily till reset' });
+  }
+
+  // Get company settings for float amount
+  db.get('SELECT till_float_amount FROM company_settings WHERE company_id = ?', [companyId], (err, settings) => {
+    const floatAmount = settings?.till_float_amount || 0;
+
+    // Check for open session on this till
+    db.get('SELECT * FROM till_sessions WHERE till_id = ? AND company_id = ? AND status = ?', [till_id, companyId, 'open'], (err, session) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+
+      if (session) {
+        // Calculate expected balance for current session
+        db.get('SELECT COALESCE(SUM(total_amount), 0) as total_sales FROM sales WHERE till_session_id = ?', [session.id], (err, salesResult) => {
+          const totalSales = salesResult?.total_sales || 0;
+          const expectedBalance = parseFloat(session.opening_balance) + parseFloat(totalSales);
+
+          // Close current session with auto-calculated values
+          db.run(
+            `UPDATE till_sessions
+             SET closing_balance = ?, expected_balance = ?, variance = 0,
+                 status = 'closed', closed_at = CURRENT_TIMESTAMP, notes = ?
+             WHERE id = ?`,
+            [expectedBalance, expectedBalance, 'Daily reset - auto-closed', session.id],
+            (err) => {
+              if (err) {
+                return res.status(500).json({ error: 'Failed to close session' });
+              }
+
+              // Log the reset
+              db.run(
+                `INSERT INTO daily_till_resets (company_id, till_id, reset_date, session_id_before, reset_by_user_id, opening_float, notes)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [companyId, till_id, today, session.id, userId, floatAmount, notes]
+              );
+
+              // Log audit
+              db.run(
+                `INSERT INTO audit_trail (company_id, user_id, event_type, event_category, event_data)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [companyId, userId, 'daily_till_reset', 'till', JSON.stringify({ till_id, previous_session_id: session.id, total_sales: totalSales })]
+              );
+
+              res.json({
+                success: true,
+                message: 'Till reset successfully',
+                previous_session: {
+                  id: session.id,
+                  total_sales: totalSales,
+                  expected_balance: expectedBalance
+                },
+                float_amount: floatAmount
+              });
+            }
+          );
+        });
+      } else {
+        // No open session, just log the reset
+        db.run(
+          `INSERT INTO daily_till_resets (company_id, till_id, reset_date, reset_by_user_id, opening_float, notes)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [companyId, till_id, today, userId, floatAmount, notes]
+        );
+
+        res.json({
+          success: true,
+          message: 'Till reset logged (no open session)',
+          float_amount: floatAmount
+        });
+      }
+    });
+  });
+});
+
+// ========== COMPANY SETTINGS ==========
+
+// Get company settings
+router.get('/settings', (req, res) => {
+  const companyId = req.user.companyId;
+
+  db.get('SELECT * FROM company_settings WHERE company_id = ?', [companyId], (err, settings) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    res.json({
+      till_float_amount: settings?.till_float_amount || 0,
+      receipt_printer_name: settings?.receipt_printer_name || '',
+      receipt_printer_ip: settings?.receipt_printer_ip || '',
+      receipt_printer_port: settings?.receipt_printer_port || 9100,
+      auto_print_receipt: settings?.auto_print_receipt === 1,
+      receipt_header: settings?.receipt_header || '',
+      receipt_footer: settings?.receipt_footer || ''
+    });
+  });
+});
+
+// Update company settings
+router.put('/settings', requirePermission('SETTINGS.COMPANY'), (req, res) => {
+  const companyId = req.user.companyId;
+  const userId = req.user.userId;
+  const {
+    till_float_amount,
+    receipt_printer_name,
+    receipt_printer_ip,
+    receipt_printer_port,
+    auto_print_receipt,
+    receipt_header,
+    receipt_footer
+  } = req.body;
+
+  // Upsert settings
+  db.get('SELECT id FROM company_settings WHERE company_id = ?', [companyId], (err, existing) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (existing) {
+      db.run(
+        `UPDATE company_settings
+         SET till_float_amount = ?, receipt_printer_name = ?, receipt_printer_ip = ?,
+             receipt_printer_port = ?, auto_print_receipt = ?, receipt_header = ?,
+             receipt_footer = ?, updated_at = CURRENT_TIMESTAMP, updated_by_user_id = ?
+         WHERE company_id = ?`,
+        [
+          till_float_amount || 0,
+          receipt_printer_name || null,
+          receipt_printer_ip || null,
+          receipt_printer_port || 9100,
+          auto_print_receipt ? 1 : 0,
+          receipt_header || null,
+          receipt_footer || null,
+          userId,
+          companyId
+        ],
+        (err) => {
+          if (err) {
+            return res.status(500).json({ error: 'Failed to update settings' });
+          }
+          res.json({ success: true, message: 'Settings updated' });
+        }
+      );
+    } else {
+      db.run(
+        `INSERT INTO company_settings (company_id, till_float_amount, receipt_printer_name, receipt_printer_ip, receipt_printer_port, auto_print_receipt, receipt_header, receipt_footer, updated_by_user_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          companyId,
+          till_float_amount || 0,
+          receipt_printer_name || null,
+          receipt_printer_ip || null,
+          receipt_printer_port || 9100,
+          auto_print_receipt ? 1 : 0,
+          receipt_header || null,
+          receipt_footer || null,
+          userId
+        ],
+        (err) => {
+          if (err) {
+            return res.status(500).json({ error: 'Failed to create settings' });
+          }
+          res.json({ success: true, message: 'Settings created' });
+        }
+      );
+    }
+  });
+});
+
+// ========== RECEIPT PRINTERS ==========
+
+// Get printers
+router.get('/printers', (req, res) => {
+  const companyId = req.user.companyId;
+
+  db.all('SELECT * FROM receipt_printers WHERE company_id = ? AND is_active = 1 ORDER BY is_default DESC, printer_name', [companyId], (err, printers) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+    res.json({ printers });
+  });
+});
+
+// Add printer
+router.post('/printers', requirePermission('SETTINGS.COMPANY'), (req, res) => {
+  const { printer_name, printer_type, ip_address, port, is_default, paper_width } = req.body;
+  const companyId = req.user.companyId;
+
+  if (!printer_name) {
+    return res.status(400).json({ error: 'Printer name required' });
+  }
+
+  // If this is default, unset other defaults
+  if (is_default) {
+    db.run('UPDATE receipt_printers SET is_default = 0 WHERE company_id = ?', [companyId]);
+  }
+
+  db.run(
+    `INSERT INTO receipt_printers (company_id, printer_name, printer_type, ip_address, port, is_default, paper_width)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [companyId, printer_name, printer_type || 'network', ip_address, port || 9100, is_default ? 1 : 0, paper_width || 80],
+    function(err) {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to add printer' });
+      }
+      res.json({ success: true, printer_id: this.lastID });
+    }
+  );
+});
+
+// Update printer
+router.put('/printers/:id', requirePermission('SETTINGS.COMPANY'), (req, res) => {
+  const { id } = req.params;
+  const { printer_name, printer_type, ip_address, port, is_default, paper_width } = req.body;
+  const companyId = req.user.companyId;
+
+  if (is_default) {
+    db.run('UPDATE receipt_printers SET is_default = 0 WHERE company_id = ?', [companyId]);
+  }
+
+  db.run(
+    `UPDATE receipt_printers
+     SET printer_name = ?, printer_type = ?, ip_address = ?, port = ?, is_default = ?, paper_width = ?
+     WHERE id = ? AND company_id = ?`,
+    [printer_name, printer_type, ip_address, port, is_default ? 1 : 0, paper_width, id, companyId],
+    (err) => {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to update printer' });
+      }
+      res.json({ success: true });
+    }
+  );
+});
+
+// Delete printer
+router.delete('/printers/:id', requirePermission('SETTINGS.COMPANY'), (req, res) => {
+  const { id } = req.params;
+  const companyId = req.user.companyId;
+
+  db.run('UPDATE receipt_printers SET is_active = 0 WHERE id = ? AND company_id = ?', [id, companyId], (err) => {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to delete printer' });
+    }
+    res.json({ success: true });
+  });
+});
+
+// ========== PRODUCTS WITH DAILY DISCOUNTS ==========
+
+// Get products with current discounts applied
+router.get('/products/with-discounts', (req, res) => {
+  const companyId = req.user.companyId;
+
+  db.all(`
+    SELECT p.*,
+           dd.discount_price,
+           dd.reason as discount_reason,
+           CASE WHEN dd.id IS NOT NULL THEN 1 ELSE 0 END as has_discount
+    FROM products p
+    LEFT JOIN product_daily_discounts dd ON p.id = dd.product_id
+      AND dd.company_id = p.company_id
+      AND dd.is_active = 1
+      AND CURRENT_DATE BETWEEN dd.start_date AND dd.end_date
+    WHERE p.company_id = ? AND p.is_active = 1
+    ORDER BY p.product_name
+  `, [companyId], (err, products) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    // Set effective price
+    products.forEach(p => {
+      p.effective_price = p.has_discount ? p.discount_price : p.unit_price;
+    });
+
+    res.json({ products });
+  });
+});
+
 module.exports = router;

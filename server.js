@@ -307,6 +307,215 @@ async function initDatabase() {
       ON CONFLICT DO NOTHING
     `, [defaultCompanyId, 'Main Till', 'TILL-001', 'Front Counter']);
 
+    // ========== BARCODE TABLES ==========
+
+    // Barcode Settings table
+    await pool.query(`CREATE TABLE IF NOT EXISTS barcode_settings (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      company_prefix VARCHAR(10) DEFAULT '600',
+      current_sequence INTEGER DEFAULT 1000,
+      barcode_type VARCHAR(20) DEFAULT 'EAN13',
+      auto_generate INTEGER DEFAULT 0,
+      last_generated VARCHAR(50),
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_by_user_id INTEGER,
+      UNIQUE(company_id)
+    )`);
+
+    // Barcode History table
+    await pool.query(`CREATE TABLE IF NOT EXISTS barcode_history (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER,
+      barcode VARCHAR(100) NOT NULL,
+      barcode_type VARCHAR(20),
+      product_id INTEGER,
+      is_company_generated INTEGER DEFAULT 0,
+      assigned_by_user_id INTEGER,
+      assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // ========== SEAN AI TABLES ==========
+
+    // Sean AI Product Knowledge table
+    await pool.query(`CREATE TABLE IF NOT EXISTS sean_product_knowledge (
+      id SERIAL PRIMARY KEY,
+      barcode VARCHAR(100) UNIQUE,
+      product_name VARCHAR(255),
+      category VARCHAR(100),
+      unit_of_measure VARCHAR(50),
+      requires_vat INTEGER DEFAULT 1,
+      vat_rate DECIMAL(5,2) DEFAULT 15,
+      confidence_score DECIMAL(3,2) DEFAULT 0.5,
+      times_seen INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // ========== AUDIT & SETTINGS TABLES ==========
+
+    // Audit Trail table
+    await pool.query(`CREATE TABLE IF NOT EXISTS audit_trail (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER,
+      user_id INTEGER,
+      event_type VARCHAR(100) NOT NULL,
+      event_category VARCHAR(50),
+      event_data TEXT,
+      ip_address VARCHAR(50),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // VAT Settings table
+    await pool.query(`CREATE TABLE IF NOT EXISTS vat_settings (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      is_vat_registered INTEGER DEFAULT 0,
+      vat_number VARCHAR(50),
+      vat_rate DECIMAL(5,2) DEFAULT 15,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_by_user_id INTEGER,
+      UNIQUE(company_id)
+    )`);
+
+    // Company Settings table (for float amount, printer settings, etc.)
+    await pool.query(`CREATE TABLE IF NOT EXISTS company_settings (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      till_float_amount DECIMAL(10,2) DEFAULT 0,
+      receipt_printer_name VARCHAR(255),
+      receipt_printer_ip VARCHAR(50),
+      receipt_printer_port INTEGER,
+      auto_print_receipt INTEGER DEFAULT 1,
+      receipt_header TEXT,
+      receipt_footer TEXT,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_by_user_id INTEGER,
+      UNIQUE(company_id)
+    )`);
+
+    // ========== STOCK MANAGEMENT TABLES ==========
+
+    // Stock Adjustments table
+    await pool.query(`CREATE TABLE IF NOT EXISTS stock_adjustments (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER,
+      product_id INTEGER NOT NULL,
+      adjustment_type VARCHAR(50) NOT NULL,
+      quantity_change INTEGER NOT NULL,
+      quantity_before INTEGER,
+      quantity_after INTEGER,
+      reason TEXT,
+      reference_number VARCHAR(100),
+      adjusted_by_user_id INTEGER,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // ========== DAILY DISCOUNT TABLES ==========
+
+    // Product Daily Discounts table
+    await pool.query(`CREATE TABLE IF NOT EXISTS product_daily_discounts (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      product_id INTEGER NOT NULL,
+      discount_price DECIMAL(10,2) NOT NULL,
+      original_price DECIMAL(10,2) NOT NULL,
+      reason TEXT,
+      start_date DATE NOT NULL,
+      end_date DATE NOT NULL,
+      created_by_user_id INTEGER,
+      approved_by_user_id INTEGER,
+      is_active INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // ========== PRICE OVERRIDE TABLES ==========
+
+    // Price Override Authorization table
+    await pool.query(`CREATE TABLE IF NOT EXISTS price_overrides (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      sale_id INTEGER,
+      product_id INTEGER,
+      original_price DECIMAL(10,2) NOT NULL,
+      override_price DECIMAL(10,2) NOT NULL,
+      reason TEXT,
+      authorized_by_user_id INTEGER NOT NULL,
+      cashier_user_id INTEGER NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // ========== SALE RETURNS TABLES ==========
+
+    // Sale Returns table
+    await pool.query(`CREATE TABLE IF NOT EXISTS sale_returns (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      original_sale_id INTEGER NOT NULL,
+      return_number VARCHAR(50) NOT NULL,
+      total_refund DECIMAL(10,2) NOT NULL,
+      reason TEXT,
+      processed_by_user_id INTEGER NOT NULL,
+      authorized_by_user_id INTEGER,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(company_id, return_number)
+    )`);
+
+    // Sale Return Items table
+    await pool.query(`CREATE TABLE IF NOT EXISTS sale_return_items (
+      id SERIAL PRIMARY KEY,
+      return_id INTEGER NOT NULL,
+      sale_item_id INTEGER NOT NULL,
+      product_id INTEGER NOT NULL,
+      quantity_returned INTEGER NOT NULL,
+      refund_amount DECIMAL(10,2) NOT NULL
+    )`);
+
+    // ========== RECEIPT PRINTERS TABLE ==========
+
+    // Receipt Printers table
+    await pool.query(`CREATE TABLE IF NOT EXISTS receipt_printers (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      printer_name VARCHAR(255) NOT NULL,
+      printer_type VARCHAR(50) DEFAULT 'network',
+      ip_address VARCHAR(50),
+      port INTEGER DEFAULT 9100,
+      is_default INTEGER DEFAULT 0,
+      paper_width INTEGER DEFAULT 80,
+      is_active INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // ========== DAILY TILL RESET TABLE ==========
+
+    // Daily Till Resets table
+    await pool.query(`CREATE TABLE IF NOT EXISTS daily_till_resets (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      till_id INTEGER NOT NULL,
+      reset_date DATE NOT NULL,
+      session_id_before INTEGER,
+      reset_by_user_id INTEGER NOT NULL,
+      opening_float DECIMAL(10,2),
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Create default barcode settings for default company
+    await pool.query(`
+      INSERT INTO barcode_settings (company_id, company_prefix, current_sequence, barcode_type)
+      VALUES ($1, '600', 1000, 'EAN13')
+      ON CONFLICT (company_id) DO NOTHING
+    `, [defaultCompanyId]);
+
+    // Create default company settings for default company
+    await pool.query(`
+      INSERT INTO company_settings (company_id, till_float_amount)
+      VALUES ($1, 500.00)
+      ON CONFLICT (company_id) DO NOTHING
+    `, [defaultCompanyId]);
+
     console.log('✅ Database initialized successfully');
     await pool.end();
   } catch (err) {

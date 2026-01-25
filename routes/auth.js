@@ -512,4 +512,104 @@ router.get('/me', authenticateToken, (req, res) => {
   });
 });
 
+/**
+ * POST /api/auth/verify-manager
+ * Verify manager credentials for authorization purposes
+ * Used when cashiers need manager approval for actions like returns, price overrides
+ */
+router.post('/verify-manager', authenticateToken, async (req, res) => {
+  const { username, password } = req.body;
+  const companyId = req.user.companyId;
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password are required' });
+  }
+
+  // Get the user by username
+  db.get('SELECT * FROM users WHERE username = ? AND is_active = 1', [username], async (err, manager) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (!manager) {
+      return res.status(401).json({ error: 'Invalid credentials', authorized: false });
+    }
+
+    // Verify password
+    const validPassword = await bcrypt.compare(password, manager.password_hash);
+
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Invalid credentials', authorized: false });
+    }
+
+    // Check if user has manager/owner role in this company
+    db.get(
+      `SELECT role FROM user_company_access
+       WHERE user_id = ? AND company_id = ? AND is_active = 1
+       AND role IN ('business_owner', 'admin', 'accountant')`,
+      [manager.id, companyId],
+      (err, access) => {
+        if (err) {
+          return res.status(500).json({ error: 'Database error' });
+        }
+
+        if (!access) {
+          return res.status(403).json({
+            error: 'User does not have manager permissions for this company',
+            authorized: false
+          });
+        }
+
+        // Success - user is authorized manager
+        res.json({
+          success: true,
+          authorized: true,
+          userId: manager.id,
+          role: access.role,
+          name: manager.full_name
+        });
+      }
+    );
+  });
+});
+
+/**
+ * POST /api/auth/change-password
+ * Change current user's password
+ */
+router.post('/change-password', authenticateToken, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.user.userId;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Current and new password are required' });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+
+  db.get('SELECT * FROM users WHERE id = ?', [userId], async (err, user) => {
+    if (err || !user) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    const validPassword = await bcrypt.compare(currentPassword, user.password_hash);
+
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+
+    db.run('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, userId], (err) => {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to update password' });
+      }
+
+      res.json({ success: true, message: 'Password changed successfully' });
+    });
+  });
+});
+
 module.exports = router;
