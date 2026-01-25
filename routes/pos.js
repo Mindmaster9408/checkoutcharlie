@@ -1213,7 +1213,7 @@ router.post('/price-override', (req, res) => {
 
 // ========== DAILY TILL RESET ==========
 
-// Reset till for new day (closes current session, starts fresh)
+// Reset till for new day - marks session as pending_cashup so actual cashup can be done later
 router.post('/till/daily-reset', requirePermission('TILL.CLOSE_SESSION'), (req, res) => {
   const { till_id, notes } = req.body;
   const companyId = req.user.companyId;
@@ -1238,21 +1238,22 @@ router.post('/till/daily-reset', requirePermission('TILL.CLOSE_SESSION'), (req, 
       const today = new Date().toISOString().split('T')[0];
 
       if (session) {
-        // Calculate expected balance for current session
+        // Calculate expected balance for current session (for reference)
         db.get('SELECT COALESCE(SUM(total_amount), 0) as total_sales FROM sales WHERE till_session_id = ?', [session.id], (err, salesResult) => {
           const totalSales = salesResult?.total_sales || 0;
           const expectedBalance = parseFloat(session.opening_balance) + parseFloat(totalSales);
 
-          // Close current session with auto-calculated values
+          // Mark session as "pending_cashup" - NOT fully closed
+          // This allows a new session to be opened while keeping this one for actual cashup later
           db.run(
             `UPDATE till_sessions
-             SET closing_balance = ?, expected_balance = ?, variance = 0,
-                 status = 'closed', closed_at = CURRENT_TIMESTAMP, notes = ?
+             SET expected_balance = ?, status = 'pending_cashup',
+                 notes = COALESCE(notes, '') || ' | Daily reset by manager - cashup pending'
              WHERE id = ?`,
-            [expectedBalance, expectedBalance, 'Daily reset - auto-closed', session.id],
+            [expectedBalance, session.id],
             (err) => {
               if (err) {
-                return res.status(500).json({ error: 'Failed to close session' });
+                return res.status(500).json({ error: 'Failed to reset session' });
               }
 
               // Log the reset
@@ -1266,18 +1267,20 @@ router.post('/till/daily-reset', requirePermission('TILL.CLOSE_SESSION'), (req, 
               db.run(
                 `INSERT INTO audit_trail (company_id, user_id, event_type, event_category, event_data)
                  VALUES (?, ?, ?, ?, ?)`,
-                [companyId, userId, 'daily_till_reset', 'till', JSON.stringify({ till_id, previous_session_id: session.id, total_sales: totalSales })]
+                [companyId, userId, 'daily_till_reset', 'till', JSON.stringify({ till_id, previous_session_id: session.id, total_sales: totalSales, status: 'pending_cashup' })]
               );
 
               res.json({
                 success: true,
-                message: 'Till reset successfully',
+                message: 'Till reset for new day. Previous session marked for cashup.',
                 previous_session: {
                   id: session.id,
                   total_sales: totalSales,
-                  expected_balance: expectedBalance
+                  expected_balance: expectedBalance,
+                  status: 'pending_cashup'
                 },
-                float_amount: floatAmount
+                float_amount: floatAmount,
+                note: 'Remember to complete the cashup for the previous session'
               });
             }
           );
@@ -1297,6 +1300,102 @@ router.post('/till/daily-reset', requirePermission('TILL.CLOSE_SESSION'), (req, 
         });
       }
     });
+  });
+});
+
+// Get sessions pending cashup
+router.get('/sessions/pending-cashup', (req, res) => {
+  const companyId = req.user.companyId;
+  const userRole = req.user.role;
+  const userId = req.user.userId;
+
+  let query = `
+    SELECT ts.*, t.till_name, u.full_name as user_name,
+           (SELECT COALESCE(SUM(total_amount), 0) FROM sales WHERE till_session_id = ts.id) as total_sales,
+           (SELECT COUNT(*) FROM sales WHERE till_session_id = ts.id) as sale_count
+    FROM till_sessions ts
+    JOIN tills t ON ts.till_id = t.id
+    JOIN users u ON ts.user_id = u.id
+    WHERE ts.company_id = ? AND ts.status = 'pending_cashup'
+  `;
+  const params = [companyId];
+
+  // Cashiers can only see their own pending sessions
+  if (userRole === 'cashier') {
+    query += ' AND ts.user_id = ?';
+    params.push(userId);
+  }
+
+  query += ' ORDER BY ts.opened_at DESC';
+
+  db.all(query, params, (err, sessions) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+    res.json({ sessions });
+  });
+});
+
+// Complete cashup for a pending session
+router.post('/sessions/:id/complete-cashup', (req, res) => {
+  const { id } = req.params;
+  const { closing_balance, notes } = req.body;
+  const companyId = req.user.companyId;
+  const userId = req.user.userId;
+  const userRole = req.user.role;
+
+  // Get the session
+  db.get('SELECT * FROM till_sessions WHERE id = ? AND company_id = ?', [id, companyId], (err, session) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    if (session.status !== 'pending_cashup') {
+      return res.status(400).json({ error: 'Session is not pending cashup' });
+    }
+
+    // Cashiers can only complete their own sessions
+    if (userRole === 'cashier' && session.user_id !== userId) {
+      return res.status(403).json({ error: 'You can only complete cashup for your own sessions' });
+    }
+
+    // Calculate variance
+    const expectedBalance = parseFloat(session.expected_balance) || 0;
+    const closingBal = parseFloat(closing_balance) || 0;
+    const variance = closingBal - expectedBalance;
+
+    // Complete the cashup
+    db.run(
+      `UPDATE till_sessions
+       SET closing_balance = ?, variance = ?, status = 'closed', closed_at = CURRENT_TIMESTAMP,
+           notes = COALESCE(notes, '') || ?
+       WHERE id = ?`,
+      [closingBal, variance, notes ? ` | Cashup: ${notes}` : ' | Cashup completed', id],
+      (err) => {
+        if (err) {
+          return res.status(500).json({ error: 'Failed to complete cashup' });
+        }
+
+        // Log audit
+        db.run(
+          `INSERT INTO audit_trail (company_id, user_id, event_type, event_category, event_data)
+           VALUES (?, ?, ?, ?, ?)`,
+          [companyId, userId, 'cashup_completed', 'till', JSON.stringify({ session_id: id, closing_balance: closingBal, expected_balance: expectedBalance, variance })]
+        );
+
+        res.json({
+          success: true,
+          session_id: id,
+          closing_balance: closingBal,
+          expected_balance: expectedBalance,
+          variance: variance
+        });
+      }
+    );
   });
 });
 

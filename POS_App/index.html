@@ -1367,6 +1367,17 @@
             <div style="max-width: 1200px; margin: 0 auto; padding-bottom: 40px;">
                 <h1 style="margin-bottom: 30px; color: #667eea;">💰 Cash Up</h1>
 
+                <!-- Pending Cashups Section (sessions from daily reset) -->
+                <div id="pendingCashupsSection" style="display: none; margin-bottom: 30px;">
+                    <div style="background: #fff3e0; border: 2px solid #ff9800; border-radius: 10px; padding: 20px;">
+                        <h3 style="margin: 0 0 15px 0; color: #e65100; display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 24px;">⏳</span> Pending Cashups from Previous Days
+                        </h3>
+                        <p style="color: #666; margin-bottom: 15px;">These sessions were reset for a new day but still need their cashup completed.</p>
+                        <div id="pendingCashupsList"></div>
+                    </div>
+                </div>
+
                 <!-- Current Session Info -->
                 <div id="sessionInfo" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 10px; margin-bottom: 30px;">
                     <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;">
@@ -2147,6 +2158,9 @@
         let currentSessionData = null;
 
         async function loadCashUpSession() {
+            // Load pending cashups first
+            await loadPendingCashups();
+
             try {
                 // Get current session
                 const sessionResponse = await fetch(`${API_URL}/pos/sessions/current`, {
@@ -2155,7 +2169,13 @@
                 const sessionResult = await sessionResponse.json();
 
                 if (!sessionResult.session) {
-                    showNotification('No active till session found', 'error');
+                    // No active session - show message but don't error (pending cashups may still be visible)
+                    document.getElementById('sessionInfo').innerHTML = `
+                        <div style="text-align: center; padding: 20px;">
+                            <p style="font-size: 18px; margin: 0;">No active till session</p>
+                            <p style="opacity: 0.8; margin-top: 10px;">Open a till session to see cash up details</p>
+                        </div>
+                    `;
                     return;
                 }
 
@@ -2181,29 +2201,120 @@
                 });
 
                 // Update UI
-                document.getElementById('sessionTillId').textContent = `Till ${currentSessionData.till_id}`;
-                document.getElementById('sessionUser').textContent = currentUser;
-                document.getElementById('sessionOpeningBalance').textContent = `R${currentSessionData.opening_balance.toFixed(2)}`;
-                
+                document.getElementById('cashUpSessionId').textContent = `Till ${currentSessionData.till_id}`;
+                document.getElementById('cashUpUser').textContent = currentUser;
+                document.getElementById('cashUpOpeningBalance').textContent = `R ${parseFloat(currentSessionData.opening_balance).toFixed(2)}`;
+
                 const openTime = new Date(currentSessionData.opened_at);
-                const duration = Math.floor((Date.now() - openTime.getTime()) / 60000);
-                document.getElementById('sessionDuration').textContent = `${duration} minutes`;
+                document.getElementById('cashUpOpenedAt').textContent = openTime.toLocaleString();
 
-                document.getElementById('totalSalesAmount').textContent = `R${totalSales.toFixed(2)}`;
-                
+                document.getElementById('cashUpTotalSales').textContent = `R ${totalSales.toFixed(2)}`;
+                document.getElementById('cashUpSalesCount').textContent = `${salesResult.sales.length} transactions`;
+
                 const expectedCash = parseFloat(currentSessionData.opening_balance) + cashSales;
-                document.getElementById('expectedCashAmount').textContent = `R${expectedCash.toFixed(2)}`;
+                document.getElementById('cashUpExpectedCash').textContent = `R ${expectedCash.toFixed(2)}`;
+                document.getElementById('expectedCashAmount').textContent = `R ${expectedCash.toFixed(2)}`;
 
-                document.getElementById('cashSalesBreakdown').textContent = `R${cashSales.toFixed(2)}`;
-                document.getElementById('cardSalesBreakdown').textContent = `R${cardSales.toFixed(2)}`;
-                document.getElementById('accountSalesBreakdown').textContent = `R${accountSales.toFixed(2)}`;
+                document.getElementById('cashSales').textContent = `R ${cashSales.toFixed(2)}`;
+                document.getElementById('cardSales').textContent = `R ${cardSales.toFixed(2)}`;
+                document.getElementById('accountSales').textContent = `R ${accountSales.toFixed(2)}`;
 
                 // Reset denomination inputs
                 resetDenominations();
-                
+
             } catch (error) {
                 console.error('Error loading cash up session:', error);
                 showNotification('Error loading session data', 'error');
+            }
+        }
+
+        async function loadPendingCashups() {
+            try {
+                const response = await fetch(`${API_URL}/pos/sessions/pending-cashup`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await response.json();
+
+                const section = document.getElementById('pendingCashupsSection');
+                const list = document.getElementById('pendingCashupsList');
+
+                if (result.sessions && result.sessions.length > 0) {
+                    section.style.display = 'block';
+                    list.innerHTML = result.sessions.map(session => `
+                        <div style="background: white; border-radius: 8px; padding: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-weight: bold; color: #333;">
+                                    ${session.till_name} - ${session.user_name}
+                                </div>
+                                <div style="font-size: 13px; color: #666; margin-top: 5px;">
+                                    Opened: ${new Date(session.opened_at).toLocaleString()} |
+                                    Sales: R ${parseFloat(session.total_sales || 0).toFixed(2)} (${session.sale_count} transactions) |
+                                    Expected: R ${parseFloat(session.expected_balance || 0).toFixed(2)}
+                                </div>
+                            </div>
+                            <button onclick="showPendingCashupModal(${session.id}, ${session.expected_balance || 0})"
+                                    style="background: #4caf50; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold;">
+                                Complete Cashup
+                            </button>
+                        </div>
+                    `).join('');
+                } else {
+                    section.style.display = 'none';
+                    list.innerHTML = '';
+                }
+            } catch (error) {
+                console.error('Error loading pending cashups:', error);
+            }
+        }
+
+        function showPendingCashupModal(sessionId, expectedBalance) {
+            const countedAmount = prompt(
+                `Complete Cashup for Session #${sessionId}\n\n` +
+                `Expected Amount: R ${parseFloat(expectedBalance).toFixed(2)}\n\n` +
+                `Enter the actual cash counted:`
+            );
+
+            if (countedAmount === null) return;
+
+            const counted = parseFloat(countedAmount);
+            if (isNaN(counted)) {
+                showNotification('Please enter a valid number', 'error');
+                return;
+            }
+
+            const variance = counted - expectedBalance;
+            const notes = prompt(
+                `Variance: R ${variance.toFixed(2)} (${variance >= 0 ? 'Over' : 'Short'})\n\n` +
+                `Add any notes (optional):`
+            ) || '';
+
+            completePendingCashup(sessionId, counted, notes);
+        }
+
+        async function completePendingCashup(sessionId, closingBalance, notes) {
+            try {
+                const response = await fetch(`${API_URL}/pos/sessions/${sessionId}/complete-cashup`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        closing_balance: closingBalance,
+                        notes: notes
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification(`Cashup completed. Variance: R ${result.variance.toFixed(2)}`, 'success');
+                    await loadPendingCashups(); // Refresh the list
+                } else {
+                    showNotification(result.error || 'Failed to complete cashup', 'error');
+                }
+            } catch (error) {
+                showNotification('Error completing cashup: ' + error.message, 'error');
             }
         }
 
@@ -4434,7 +4545,7 @@
         // ========== DAILY TILL RESET FUNCTIONS ==========
 
         async function dailyTillReset() {
-            if (!confirm('This will close the current till session and start fresh for the new day.\n\nAll sales data will be preserved for reports.\n\nContinue?')) {
+            if (!confirm('This will start a fresh day for the till.\n\nThe current session will be marked as "pending cashup" so you can complete the actual cashup later.\n\nAll sales data will be preserved.\n\nContinue?')) {
                 return;
             }
 
@@ -4465,10 +4576,12 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    showNotification('Till reset successfully. Float: R ' + result.float_amount, 'success');
+                    showNotification('New day started! Previous session marked for cashup. Float: R ' + result.float_amount, 'success');
                     currentSession = null;
                     document.getElementById('sessionStatus').textContent = 'No Session';
                     checkSession();
+                    // Refresh pending cashups list
+                    await loadPendingCashups();
                 } else {
                     showNotification(result.error || 'Failed to reset till', 'error');
                 }
