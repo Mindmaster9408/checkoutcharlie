@@ -612,4 +612,242 @@ router.post('/change-password', authenticateToken, async (req, res) => {
   });
 });
 
+// ========== COMPANY MANAGEMENT ==========
+
+/**
+ * GET /api/auth/companies/all
+ * Get all companies (for corporate admin / business owner)
+ */
+router.get('/companies/all', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+  const userRole = req.user.role;
+
+  // Only business_owner and corporate_admin can see all companies
+  if (!['business_owner', 'corporate_admin'].includes(userRole)) {
+    return res.status(403).json({ error: 'Only business owners and corporate admins can manage companies' });
+  }
+
+  db.all(
+    `SELECT c.*,
+       (SELECT COUNT(*) FROM user_company_access uca WHERE uca.company_id = c.id AND uca.is_active = 1) as user_count
+     FROM companies c
+     ORDER BY c.created_at DESC`,
+    [],
+    (err, companies) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      res.json({ companies: companies || [] });
+    }
+  );
+});
+
+/**
+ * POST /api/auth/companies/create
+ * Create a new company (separate tenant)
+ */
+router.post('/companies/create', authenticateToken, (req, res) => {
+  const userRole = req.user.role;
+  const userId = req.user.userId;
+
+  if (!['business_owner', 'corporate_admin'].includes(userRole)) {
+    return res.status(403).json({ error: 'Insufficient permissions' });
+  }
+
+  const { company_name, trading_name, registration_number, vat_number, contact_email, contact_phone, address } = req.body;
+
+  if (!company_name) {
+    return res.status(400).json({ error: 'Company name is required' });
+  }
+
+  db.run(
+    `INSERT INTO companies (company_name, trading_name, registration_number, vat_number, contact_email, contact_phone, address)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [company_name, trading_name || null, registration_number || null, vat_number || null, contact_email || null, contact_phone || null, address || null],
+    function(err) {
+      if (err) return res.status(500).json({ error: 'Failed to create company', details: err.message });
+
+      const newCompanyId = this.lastID;
+
+      // Link the creator as business_owner of the new company
+      db.run(
+        `INSERT INTO user_company_access (user_id, company_id, role, is_primary, granted_by_user_id)
+         VALUES (?, ?, 'business_owner', 0, ?)`,
+        [userId, newCompanyId, userId],
+        function(err2) {
+          if (err2) console.error('Failed to link creator to company:', err2);
+
+          // Create default location for new company
+          db.run(
+            `INSERT INTO locations (company_id, location_code, location_name, location_type)
+             VALUES (?, 'HQ-001', 'Head Office', 'hq')`,
+            [newCompanyId],
+            function(err3) {
+              if (err3) console.error('Failed to create default location:', err3);
+
+              // Create default settings
+              db.run(
+                `INSERT INTO company_settings (company_id, till_float_amount) VALUES (?, 500.00)`,
+                [newCompanyId],
+                function(err4) {
+                  if (err4) console.error('Failed to create company settings:', err4);
+
+                  res.status(201).json({
+                    message: 'Company created successfully',
+                    company: { id: newCompanyId, company_name, trading_name }
+                  });
+                }
+              );
+            }
+          );
+        }
+      );
+    }
+  );
+});
+
+/**
+ * PUT /api/auth/companies/:id
+ * Update company details
+ */
+router.put('/companies/:id', authenticateToken, (req, res) => {
+  const userRole = req.user.role;
+  if (!['business_owner', 'corporate_admin'].includes(userRole)) {
+    return res.status(403).json({ error: 'Insufficient permissions' });
+  }
+
+  const companyId = req.params.id;
+  const { company_name, trading_name, registration_number, vat_number, contact_email, contact_phone, address } = req.body;
+
+  db.run(
+    `UPDATE companies SET
+      company_name = COALESCE(?, company_name),
+      trading_name = COALESCE(?, trading_name),
+      registration_number = COALESCE(?, registration_number),
+      vat_number = COALESCE(?, vat_number),
+      contact_email = COALESCE(?, contact_email),
+      contact_phone = COALESCE(?, contact_phone),
+      address = COALESCE(?, address),
+      updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+    [company_name, trading_name, registration_number, vat_number, contact_email, contact_phone, address, companyId],
+    function(err) {
+      if (err) return res.status(500).json({ error: 'Failed to update company' });
+      if (this.changes === 0) return res.status(404).json({ error: 'Company not found' });
+      res.json({ message: 'Company updated' });
+    }
+  );
+});
+
+/**
+ * GET /api/auth/companies/:id/users
+ * Get all users for a specific company
+ */
+router.get('/companies/:id/users', authenticateToken, (req, res) => {
+  const userRole = req.user.role;
+  if (!['business_owner', 'corporate_admin', 'store_manager', 'admin'].includes(userRole)) {
+    return res.status(403).json({ error: 'Insufficient permissions' });
+  }
+
+  db.all(
+    `SELECT u.id, u.username, u.email, u.full_name, u.employee_id, u.is_active,
+            u.last_login_at, u.created_at, u.employment_status,
+            uca.role, uca.is_primary
+     FROM user_company_access uca
+     JOIN users u ON uca.user_id = u.id
+     WHERE uca.company_id = ? AND uca.is_active = 1
+     ORDER BY u.full_name ASC`,
+    [req.params.id],
+    (err, users) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      res.json({ users: users || [] });
+    }
+  );
+});
+
+/**
+ * POST /api/auth/companies/:id/users
+ * Add a new user directly to a company (no invitation needed)
+ */
+router.post('/companies/:id/users', authenticateToken, async (req, res) => {
+  const userRole = req.user.role;
+  if (!['business_owner', 'corporate_admin', 'store_manager', 'admin'].includes(userRole)) {
+    return res.status(403).json({ error: 'Insufficient permissions' });
+  }
+
+  const companyId = req.params.id;
+  const { username, email, password, full_name, role, employee_id, department, location_id } = req.body;
+
+  if (!username || !password || !full_name || !role) {
+    return res.status(400).json({ error: 'Username, password, full name, and role are required' });
+  }
+
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+
+  // Check username uniqueness
+  db.get('SELECT id FROM users WHERE username = ?', [username], async (err, existing) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (existing) return res.status(409).json({ error: 'Username already taken' });
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    db.run(
+      `INSERT INTO users (username, email, password_hash, full_name, role, user_type, employee_id, is_active)
+       VALUES (?, ?, ?, ?, ?, 'company_user', ?, 1)`,
+      [username, email || null, passwordHash, full_name, role, employee_id || null],
+      function(err2) {
+        if (err2) return res.status(500).json({ error: 'Failed to create user', details: err2.message });
+
+        const newUserId = this.lastID;
+
+        // Link user to company
+        db.run(
+          `INSERT INTO user_company_access (user_id, company_id, role, is_primary, granted_by_user_id)
+           VALUES (?, ?, ?, 1, ?)`,
+          [newUserId, companyId, role, req.user.userId],
+          function(err3) {
+            if (err3) return res.status(500).json({ error: 'Failed to link user to company' });
+
+            // Optionally assign to location
+            if (location_id) {
+              db.run(
+                `INSERT INTO user_location_access (user_id, location_id, role, is_primary, granted_by_user_id)
+                 VALUES (?, ?, ?, 1, ?)`,
+                [newUserId, location_id, role, req.user.userId],
+                (err4) => { if (err4) console.error('Failed to assign location:', err4); }
+              );
+            }
+
+            res.status(201).json({
+              message: 'User created and added to company',
+              user: { id: newUserId, username, full_name, role }
+            });
+          }
+        );
+      }
+    );
+  });
+});
+
+/**
+ * DELETE /api/auth/companies/:companyId/users/:userId
+ * Remove a user from a company
+ */
+router.delete('/companies/:companyId/users/:userId', authenticateToken, (req, res) => {
+  const userRole = req.user.role;
+  if (!['business_owner', 'corporate_admin'].includes(userRole)) {
+    return res.status(403).json({ error: 'Insufficient permissions' });
+  }
+
+  db.run(
+    `UPDATE user_company_access SET is_active = 0 WHERE user_id = ? AND company_id = ?`,
+    [req.params.userId, req.params.companyId],
+    function(err) {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (this.changes === 0) return res.status(404).json({ error: 'User not found in this company' });
+      res.json({ message: 'User removed from company' });
+    }
+  );
+});
+
 module.exports = router;

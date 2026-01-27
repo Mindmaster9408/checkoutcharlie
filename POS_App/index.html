@@ -994,6 +994,179 @@
         .role-hidden {
             display: none !important;
         }
+
+        /* Enterprise Layout Styles */
+        .enterprise-layout {
+            display: none;
+            padding: 20px;
+            height: calc(100vh - 50px);
+            overflow-y: auto;
+            background: #f5f7fa;
+        }
+        .enterprise-layout h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        .kpi-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border-left: 4px solid #667eea;
+        }
+        .kpi-card.green { border-left-color: #4caf50; }
+        .kpi-card.orange { border-left-color: #ff9800; }
+        .kpi-card.red { border-left-color: #f44336; }
+        .kpi-card.purple { border-left-color: #9c27b0; }
+        .kpi-label {
+            font-size: 12px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+        .kpi-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+        }
+        .kpi-sub {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .enterprise-section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .enterprise-section h3 {
+            margin-bottom: 15px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .enterprise-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .enterprise-table th {
+            background: #f5f7fa;
+            padding: 10px 12px;
+            text-align: left;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #666;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        .enterprise-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #eee;
+            font-size: 14px;
+        }
+        .enterprise-table tr:hover td {
+            background: #f9f9ff;
+        }
+        .status-badge {
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .status-badge.active { background: #e8f5e9; color: #2e7d32; }
+        .status-badge.pending { background: #fff3e0; color: #e65100; }
+        .status-badge.closed { background: #e0e0e0; color: #616161; }
+        .status-badge.alert { background: #ffebee; color: #c62828; }
+        .enterprise-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            gap: 10px;
+        }
+        .enterprise-toolbar input, .enterprise-toolbar select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .ent-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .ent-btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .ent-btn-primary:hover { background: #5a6fd6; }
+        .ent-btn-success {
+            background: #4caf50;
+            color: white;
+        }
+        .ent-btn-success:hover { background: #43a047; }
+        .ent-btn-warning {
+            background: #ff9800;
+            color: white;
+        }
+        .ent-btn-danger {
+            background: #f44336;
+            color: white;
+        }
+        .alert-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        .alert-row.warning { background: #fff3e0; }
+        .alert-row.critical { background: #ffebee; }
+        .alert-row.info { background: #e3f2fd; }
+        .tab-sub-nav {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+        .sub-tab {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-weight: 500;
+            color: #666;
+            border-radius: 6px 6px 0 0;
+            font-size: 14px;
+        }
+        .sub-tab:hover { background: #f5f7fa; }
+        .sub-tab.active {
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+            font-weight: 600;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        .empty-state .icon { font-size: 48px; margin-bottom: 10px; }
     </style>
 </head>
 <body>
@@ -1034,8 +1207,11 @@
                 <button class="nav-tab" onclick="showTab('stock', event)">Stock</button>
                 <button class="nav-tab" onclick="showTab('reports', event)">Reports</button>
                 <button class="nav-tab" onclick="showTab('cashup', event)">Cash Up</button>
+                <button class="nav-tab enterprise-tab" onclick="showTab('dashboard', event)">Dashboard</button>
+                <button class="nav-tab enterprise-tab" onclick="showTab('inventory', event)">Inventory</button>
+                <button class="nav-tab enterprise-tab" onclick="showTab('employees', event)">Employees</button>
+                <button class="nav-tab enterprise-tab" onclick="showTab('loyalty', event)">Loyalty</button>
                 <button class="nav-tab" onclick="showTab('settings', event)">Settings</button>
-                <button class="nav-tab" onclick="showTab('refer', event)">Refer</button>
             </div>
             <div class="nav-right">
                 <div class="user-info">
@@ -1538,13 +1714,14 @@
         <div id="settingsLayout" class="settings-layout">
             <div class="settings-grid">
                 <div class="settings-sidebar">
+                    <div class="settings-menu-item active" onclick="showSettings('products', event)">Products</div>
+                    <div class="settings-menu-item" onclick="showSettings('customers', event)">Customers</div>
+                    <div class="settings-menu-item" onclick="showSettings('companies', event)">Companies</div>
+                    <div class="settings-menu-item" onclick="showSettings('users', event)">Users</div>
                     <div class="settings-menu-item" onclick="showSettings('general', event)">General</div>
                     <div class="settings-menu-item" onclick="showSettings('receipt-printers', event)">Receipt Printers</div>
-                    <div class="settings-menu-item active" onclick="showSettings('products', event)">Products</div>
                     <div class="settings-menu-item" onclick="showSettings('categories', event)">Categories</div>
                     <div class="settings-menu-item" onclick="showSettings('brands', event)">Brands</div>
-                    <div class="settings-menu-item" onclick="showSettings('users', event)">Users</div>
-                    <div class="settings-menu-item" onclick="showSettings('customers', event)">Customers</div>
                     <div class="settings-menu-item" onclick="showSettings('suppliers', event)">Suppliers</div>
                     <div class="settings-menu-item" onclick="showSettings('sites', event)">Sites</div>
                 </div>
@@ -1579,6 +1756,71 @@
                                 </thead>
                                 <tbody id="productsTableBody">
                                     <!-- Products will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Companies Section -->
+                    <div id="companiesSection" style="display: none;">
+                        <div class="products-header">
+                            <h3 style="margin:0;">Company Management</h3>
+                            <div class="header-actions">
+                                <button class="btn btn-primary" onclick="showAddCompanyModal()">+ New Company</button>
+                            </div>
+                        </div>
+                        <p style="color: #666; margin: 10px 0 20px; font-size: 13px;">Each company is a separate tenant with its own products, sales, employees, and data. Users can belong to different companies with different roles.</p>
+                        <div class="products-container">
+                            <table class="products-table">
+                                <thead>
+                                    <tr>
+                                        <th>Company Name</th>
+                                        <th>Trading Name</th>
+                                        <th>Reg Number</th>
+                                        <th>VAT</th>
+                                        <th>Email</th>
+                                        <th>Users</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="companiesTableBody">
+                                    <tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">Loading companies...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Users Section -->
+                    <div id="usersSection" style="display: none;">
+                        <div class="products-header">
+                            <div style="display:flex;align-items:center;gap:15px;">
+                                <h3 style="margin:0;">User Management</h3>
+                                <select id="userCompanyFilter" onchange="loadCompanyUsers()" style="padding:8px;border:1px solid #ddd;border-radius:6px;">
+                                    <option value="">Select company...</option>
+                                </select>
+                            </div>
+                            <div class="header-actions">
+                                <button class="btn btn-primary" onclick="showAddUserModal()">+ Add User</button>
+                            </div>
+                        </div>
+                        <p style="color: #666; margin: 10px 0 20px; font-size: 13px;">Users belong to specific companies. Each user can have a different role per company. Select a company above to manage its users.</p>
+                        <div class="products-container">
+                            <table class="products-table">
+                                <thead>
+                                    <tr>
+                                        <th>Full Name</th>
+                                        <th>Username</th>
+                                        <th>Email</th>
+                                        <th>Role</th>
+                                        <th>Employee ID</th>
+                                        <th>Status</th>
+                                        <th>Last Login</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="usersTableBody">
+                                    <tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">Select a company to view its users</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -1848,6 +2090,515 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeCustomerModal()">Cancel</button>
                 <button class="btn btn-primary" onclick="saveCustomer()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Company Modal -->
+    <div id="companyModal" class="modal-overlay" style="display:none;">
+        <div class="modal" style="max-width:550px;">
+            <div class="modal-header">
+                <h2 id="companyModalTitle">Add Company</h2>
+                <button class="close-btn" onclick="closeCompanyModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <div style="display:grid;gap:15px;">
+                    <div>
+                        <label style="font-weight:600;display:block;margin-bottom:5px;">Company Name *</label>
+                        <input type="text" id="companyName" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="e.g. ABC Trading Pty Ltd">
+                    </div>
+                    <div>
+                        <label style="font-weight:600;display:block;margin-bottom:5px;">Trading Name</label>
+                        <input type="text" id="companyTradingName" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="e.g. ABC Store">
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+                        <div>
+                            <label style="font-weight:600;display:block;margin-bottom:5px;">Registration Number</label>
+                            <input type="text" id="companyRegNumber" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+                        </div>
+                        <div>
+                            <label style="font-weight:600;display:block;margin-bottom:5px;">VAT Number</label>
+                            <input type="text" id="companyVatNumber" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+                        <div>
+                            <label style="font-weight:600;display:block;margin-bottom:5px;">Contact Email</label>
+                            <input type="email" id="companyEmail" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+                        </div>
+                        <div>
+                            <label style="font-weight:600;display:block;margin-bottom:5px;">Contact Phone</label>
+                            <input type="text" id="companyPhone" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+                        </div>
+                    </div>
+                    <div>
+                        <label style="font-weight:600;display:block;margin-bottom:5px;">Address</label>
+                        <textarea id="companyAddress" rows="2" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;resize:vertical;"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding:15px 20px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:10px;">
+                <button class="btn btn-secondary" onclick="closeCompanyModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveCompany()">Create Company</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div id="userModal" class="modal-overlay" style="display:none;">
+        <div class="modal" style="max-width:550px;">
+            <div class="modal-header">
+                <h2>Add User to Company</h2>
+                <button class="close-btn" onclick="closeUserModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <div style="display:grid;gap:15px;">
+                    <div>
+                        <label style="font-weight:600;display:block;margin-bottom:5px;">Company *</label>
+                        <select id="userCompanySelect" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+                            <option value="">Select company...</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-weight:600;display:block;margin-bottom:5px;">Full Name *</label>
+                        <input type="text" id="userFullName" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="e.g. John Smith">
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+                        <div>
+                            <label style="font-weight:600;display:block;margin-bottom:5px;">Username *</label>
+                            <input type="text" id="userUsername" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="e.g. jsmith">
+                        </div>
+                        <div>
+                            <label style="font-weight:600;display:block;margin-bottom:5px;">Email</label>
+                            <input type="email" id="userEmail" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+                        <div>
+                            <label style="font-weight:600;display:block;margin-bottom:5px;">Password *</label>
+                            <input type="password" id="userPassword" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="Min 6 characters">
+                        </div>
+                        <div>
+                            <label style="font-weight:600;display:block;margin-bottom:5px;">Role *</label>
+                            <select id="userRole" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+                                <option value="">Select role...</option>
+                                <optgroup label="Corporate">
+                                    <option value="corporate_admin">Corporate Admin</option>
+                                    <option value="corporate_finance">Corporate Finance</option>
+                                    <option value="corporate_ops">Corporate Operations</option>
+                                </optgroup>
+                                <optgroup label="Regional">
+                                    <option value="regional_manager">Regional Manager</option>
+                                    <option value="regional_analyst">Regional Analyst</option>
+                                </optgroup>
+                                <optgroup label="District">
+                                    <option value="district_manager">District Manager</option>
+                                    <option value="district_trainer">District Trainer</option>
+                                </optgroup>
+                                <optgroup label="Store">
+                                    <option value="store_manager">Store Manager</option>
+                                    <option value="assistant_manager">Assistant Manager</option>
+                                    <option value="shift_supervisor">Shift Supervisor</option>
+                                    <option value="senior_cashier">Senior Cashier</option>
+                                    <option value="cashier">Cashier</option>
+                                    <option value="trainee">Trainee</option>
+                                </optgroup>
+                                <optgroup label="Special">
+                                    <option value="business_owner">Business Owner</option>
+                                    <option value="accountant">Accountant</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label style="font-weight:600;display:block;margin-bottom:5px;">Employee ID</label>
+                        <input type="text" id="userEmployeeId" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="Optional - e.g. EMP-001">
+                    </div>
+                </div>
+                <div style="margin-top:15px;padding:12px;background:#e3f2fd;border-radius:8px;font-size:13px;color:#1565c0;">
+                    This user will belong ONLY to the selected company. They will not see data from any other company.
+                </div>
+            </div>
+            <div class="modal-footer" style="padding:15px 20px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:10px;">
+                <button class="btn btn-secondary" onclick="closeUserModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveUser()">Create User</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== ENTERPRISE LAYOUTS ========== -->
+
+    <!-- Dashboard Layout -->
+    <div id="dashboardLayout" class="enterprise-layout">
+        <h1>Enterprise Dashboard</h1>
+        <div class="dashboard-grid" id="dashboardKPIs">
+            <div class="kpi-card">
+                <div class="kpi-label">Today's Sales</div>
+                <div class="kpi-value" id="kpiTodaySales">R 0.00</div>
+                <div class="kpi-sub" id="kpiTodayTransactions">0 transactions</div>
+            </div>
+            <div class="kpi-card green">
+                <div class="kpi-label">Gross Profit</div>
+                <div class="kpi-value" id="kpiGrossProfit">R 0.00</div>
+                <div class="kpi-sub" id="kpiProfitMargin">0% margin</div>
+            </div>
+            <div class="kpi-card orange">
+                <div class="kpi-label">Avg Transaction</div>
+                <div class="kpi-value" id="kpiAvgTransaction">R 0.00</div>
+                <div class="kpi-sub" id="kpiAvgBasket">0 items avg</div>
+            </div>
+            <div class="kpi-card purple">
+                <div class="kpi-label">Active Employees</div>
+                <div class="kpi-value" id="kpiActiveEmployees">0</div>
+                <div class="kpi-sub">on shift today</div>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div class="enterprise-section">
+                <h3>Loss Prevention Alerts</h3>
+                <div id="dashboardAlerts">
+                    <div class="empty-state"><div class="icon">&#9989;</div><p>No active alerts</p></div>
+                </div>
+            </div>
+            <div class="enterprise-section">
+                <h3>Recent Activity</h3>
+                <div id="dashboardActivity">
+                    <div class="empty-state"><div class="icon">&#128196;</div><p>No recent activity</p></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="enterprise-section">
+            <h3>Location Performance</h3>
+            <table class="enterprise-table" id="dashboardLocations">
+                <thead>
+                    <tr>
+                        <th>Location</th>
+                        <th>Type</th>
+                        <th>Today's Sales</th>
+                        <th>Transactions</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="locationPerformanceBody">
+                    <tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">Loading locations...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Inventory Layout -->
+    <div id="inventoryLayout" class="enterprise-layout">
+        <h1>Inventory Management</h1>
+        <div class="tab-sub-nav">
+            <button class="sub-tab active" onclick="showInventoryTab('stock-levels', event)">Stock Levels</button>
+            <button class="sub-tab" onclick="showInventoryTab('transfers', event)">Transfers</button>
+            <button class="sub-tab" onclick="showInventoryTab('purchase-orders', event)">Purchase Orders</button>
+            <button class="sub-tab" onclick="showInventoryTab('suppliers', event)">Suppliers</button>
+        </div>
+
+        <div id="invStockLevels">
+            <div class="enterprise-toolbar">
+                <div style="display:flex;gap:10px;">
+                    <input type="text" id="invSearchProduct" placeholder="Search products..." onkeyup="searchInventory()">
+                    <select id="invFilterLowStock" onchange="filterInventory()">
+                        <option value="">All Stock</option>
+                        <option value="low">Low Stock</option>
+                        <option value="out">Out of Stock</option>
+                    </select>
+                </div>
+                <button class="ent-btn ent-btn-primary" onclick="loadInventoryLevels()">Refresh</button>
+            </div>
+            <div class="enterprise-section">
+                <table class="enterprise-table">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Code</th>
+                            <th>Category</th>
+                            <th>On Hand</th>
+                            <th>Reserved</th>
+                            <th>In Transit</th>
+                            <th>Available</th>
+                            <th>Reorder Point</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventoryTableBody">
+                        <tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">Loading inventory...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="invTransfers" style="display:none;">
+            <div class="enterprise-toolbar">
+                <h3 style="margin:0;">Stock Transfers</h3>
+                <button class="ent-btn ent-btn-primary" onclick="showNewTransferModal()">+ New Transfer</button>
+            </div>
+            <div class="enterprise-section">
+                <table class="enterprise-table">
+                    <thead>
+                        <tr>
+                            <th>Transfer #</th>
+                            <th>From</th>
+                            <th>To</th>
+                            <th>Items</th>
+                            <th>Status</th>
+                            <th>Requested</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transfersTableBody">
+                        <tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">Loading transfers...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="invPurchaseOrders" style="display:none;">
+            <div class="enterprise-toolbar">
+                <h3 style="margin:0;">Purchase Orders</h3>
+                <button class="ent-btn ent-btn-primary" onclick="showNewPOModal()">+ New PO</button>
+            </div>
+            <div class="enterprise-section">
+                <table class="enterprise-table">
+                    <thead>
+                        <tr>
+                            <th>PO #</th>
+                            <th>Supplier</th>
+                            <th>Delivery Location</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Expected</th>
+                        </tr>
+                    </thead>
+                    <tbody id="poTableBody">
+                        <tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">Loading purchase orders...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="invSuppliers" style="display:none;">
+            <div class="enterprise-toolbar">
+                <h3 style="margin:0;">Suppliers</h3>
+                <button class="ent-btn ent-btn-primary" onclick="showNewSupplierModal()">+ New Supplier</button>
+            </div>
+            <div class="enterprise-section">
+                <table class="enterprise-table">
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Name</th>
+                            <th>Contact</th>
+                            <th>Email</th>
+                            <th>Payment Terms</th>
+                            <th>Preferred</th>
+                        </tr>
+                    </thead>
+                    <tbody id="suppliersTableBody">
+                        <tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">Loading suppliers...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Employees Layout -->
+    <div id="employeesLayout" class="enterprise-layout">
+        <h1>Employee Management</h1>
+        <div class="tab-sub-nav">
+            <button class="sub-tab active" onclick="showEmployeeTab('roster', event)">Roster</button>
+            <button class="sub-tab" onclick="showEmployeeTab('scheduling', event)">Scheduling</button>
+            <button class="sub-tab" onclick="showEmployeeTab('time-clock', event)">Time Clock</button>
+        </div>
+
+        <div id="empRoster">
+            <div class="enterprise-toolbar">
+                <div style="display:flex;gap:10px;">
+                    <input type="text" id="empSearch" placeholder="Search employees..." onkeyup="searchEmployees()">
+                    <select id="empFilterRole" onchange="filterEmployees()">
+                        <option value="">All Roles</option>
+                        <option value="store_manager">Store Manager</option>
+                        <option value="assistant_manager">Assistant Manager</option>
+                        <option value="shift_supervisor">Shift Supervisor</option>
+                        <option value="senior_cashier">Senior Cashier</option>
+                        <option value="cashier">Cashier</option>
+                        <option value="trainee">Trainee</option>
+                    </select>
+                    <select id="empFilterStatus" onchange="filterEmployees()">
+                        <option value="">All Statuses</option>
+                        <option value="active">Active</option>
+                        <option value="on_leave">On Leave</option>
+                        <option value="suspended">Suspended</option>
+                    </select>
+                </div>
+                <button class="ent-btn ent-btn-primary" onclick="showNewEmployeeModal()">+ Add Employee</button>
+            </div>
+            <div class="enterprise-section">
+                <table class="enterprise-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Employee ID</th>
+                            <th>Role</th>
+                            <th>Department</th>
+                            <th>Status</th>
+                            <th>Hire Date</th>
+                            <th>Last Login</th>
+                        </tr>
+                    </thead>
+                    <tbody id="employeesTableBody">
+                        <tr><td colspan="7" style="text-align:center;color:#999;padding:20px;">Loading employees...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="empScheduling" style="display:none;">
+            <div class="enterprise-toolbar">
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <h3 style="margin:0;">Shift Schedule</h3>
+                    <input type="date" id="scheduleDate" onchange="loadSchedule()">
+                </div>
+                <button class="ent-btn ent-btn-primary" onclick="showNewShiftModal()">+ Add Shift</button>
+            </div>
+            <div class="enterprise-section">
+                <table class="enterprise-table">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Date</th>
+                            <th>Start</th>
+                            <th>End</th>
+                            <th>Break</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scheduleTableBody">
+                        <tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">Select a date to view schedule</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="empTimeClock" style="display:none;">
+            <div class="enterprise-section">
+                <h3>Your Clock Status</h3>
+                <div id="clockStatus" style="padding: 20px; text-align: center;">
+                    <p style="font-size: 18px; margin-bottom: 15px;" id="clockStatusText">Not clocked in</p>
+                    <button class="ent-btn ent-btn-success" id="clockInBtn" onclick="clockIn()" style="padding: 15px 30px; font-size: 16px;">Clock In</button>
+                    <button class="ent-btn ent-btn-danger" id="clockOutBtn" onclick="clockOut()" style="padding: 15px 30px; font-size: 16px; display: none;">Clock Out</button>
+                </div>
+            </div>
+            <div class="enterprise-section">
+                <h3>Today's Time Entries</h3>
+                <table class="enterprise-table">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Clock In</th>
+                            <th>Clock Out</th>
+                            <th>Hours</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="timeEntriesBody">
+                        <tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">Loading time entries...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loyalty Layout -->
+    <div id="loyaltyLayout" class="enterprise-layout">
+        <h1>Customer Loyalty & Promotions</h1>
+        <div class="tab-sub-nav">
+            <button class="sub-tab active" onclick="showLoyaltyTab('programs', event)">Programs</button>
+            <button class="sub-tab" onclick="showLoyaltyTab('members', event)">Members</button>
+            <button class="sub-tab" onclick="showLoyaltyTab('promotions', event)">Promotions</button>
+        </div>
+
+        <div id="loyPrograms">
+            <div class="enterprise-toolbar">
+                <h3 style="margin:0;">Loyalty Programs</h3>
+                <button class="ent-btn ent-btn-primary" onclick="showNewProgramModal()">+ New Program</button>
+            </div>
+            <div class="enterprise-section">
+                <table class="enterprise-table">
+                    <thead>
+                        <tr>
+                            <th>Program Name</th>
+                            <th>Points per R1</th>
+                            <th>Point Value</th>
+                            <th>Min Redemption</th>
+                            <th>Expiry</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="loyaltyProgramsBody">
+                        <tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">Loading programs...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="loyMembers" style="display:none;">
+            <div class="enterprise-toolbar">
+                <input type="text" id="loyMemberSearch" placeholder="Search members..." onkeyup="searchLoyaltyMembers()">
+                <button class="ent-btn ent-btn-primary" onclick="showEnrollCustomerModal()">+ Enroll Customer</button>
+            </div>
+            <div class="enterprise-section">
+                <table class="enterprise-table">
+                    <thead>
+                        <tr>
+                            <th>Customer</th>
+                            <th>Loyalty #</th>
+                            <th>Program</th>
+                            <th>Tier</th>
+                            <th>Points Balance</th>
+                            <th>Lifetime Spend</th>
+                        </tr>
+                    </thead>
+                    <tbody id="loyaltyMembersBody">
+                        <tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">Loading members...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="loyPromotions" style="display:none;">
+            <div class="enterprise-toolbar">
+                <div style="display:flex;gap:10px;">
+                    <input type="text" id="promoSearch" placeholder="Search promotions...">
+                    <select id="promoFilter">
+                        <option value="">All Promotions</option>
+                        <option value="active">Active</option>
+                        <option value="upcoming">Upcoming</option>
+                        <option value="expired">Expired</option>
+                    </select>
+                </div>
+                <button class="ent-btn ent-btn-primary" onclick="showNewPromotionModal()">+ New Promotion</button>
+            </div>
+            <div class="enterprise-section">
+                <table class="enterprise-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Code</th>
+                            <th>Type</th>
+                            <th>Discount</th>
+                            <th>Start</th>
+                            <th>End</th>
+                            <th>Usage</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="promotionsTableBody">
+                        <tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">Loading promotions...</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -2777,6 +3528,11 @@
             document.getElementById('settingsLayout').style.display = 'none';
             document.getElementById('reportsLayout').style.display = 'none';
             document.getElementById('cashUpLayout').style.display = 'none';
+            // Hide enterprise sections
+            document.getElementById('dashboardLayout').style.display = 'none';
+            document.getElementById('inventoryLayout').style.display = 'none';
+            document.getElementById('employeesLayout').style.display = 'none';
+            document.getElementById('loyaltyLayout').style.display = 'none';
 
             // Show appropriate section
             if (tab === 'till') {
@@ -2793,6 +3549,18 @@
             } else if (tab === 'cashup') {
                 document.getElementById('cashUpLayout').style.display = 'block';
                 loadCashUpSession();
+            } else if (tab === 'dashboard') {
+                document.getElementById('dashboardLayout').style.display = 'block';
+                loadDashboard();
+            } else if (tab === 'inventory') {
+                document.getElementById('inventoryLayout').style.display = 'block';
+                loadInventoryLevels();
+            } else if (tab === 'employees') {
+                document.getElementById('employeesLayout').style.display = 'block';
+                loadEmployees();
+            } else if (tab === 'loyalty') {
+                document.getElementById('loyaltyLayout').style.display = 'block';
+                loadLoyaltyPrograms();
             } else {
                 alert(`${tab.charAt(0).toUpperCase() + tab.slice(1)} section - To be implemented`);
             }
@@ -2807,7 +3575,24 @@
                 evt.target.classList.add('active');
             }
 
-            if (section !== 'products') {
+            // Hide all settings sections
+            document.getElementById('productsSection').style.display = 'none';
+            document.getElementById('companiesSection').style.display = 'none';
+            document.getElementById('usersSection').style.display = 'none';
+            document.getElementById('customersSection').style.display = 'none';
+
+            if (section === 'products') {
+                document.getElementById('productsSection').style.display = 'block';
+            } else if (section === 'companies') {
+                document.getElementById('companiesSection').style.display = 'block';
+                loadCompanies();
+            } else if (section === 'users') {
+                document.getElementById('usersSection').style.display = 'block';
+                loadCompaniesForUserFilter();
+            } else if (section === 'customers') {
+                document.getElementById('customersSection').style.display = 'block';
+                if (typeof loadCustomers === 'function') loadCustomers();
+            } else {
                 alert(`${section} section - To be implemented`);
             }
         }
@@ -4820,6 +5605,10 @@
                 document.getElementById('settingsLayout').style.display = 'none';
                 document.getElementById('reportsLayout').style.display = 'none';
                 document.getElementById('cashUpLayout').style.display = 'none';
+                document.getElementById('dashboardLayout').style.display = 'none';
+                document.getElementById('inventoryLayout').style.display = 'none';
+                document.getElementById('employeesLayout').style.display = 'none';
+                document.getElementById('loyaltyLayout').style.display = 'none';
                 stockInterface.style.display = 'block';
 
                 // Remove active from all tabs, add to stock
@@ -4838,6 +5627,718 @@
                 originalShowTab(tab, evt);
             }
         };
+
+        // ========== ENTERPRISE TAB JAVASCRIPT ==========
+
+        // Dashboard
+        async function loadDashboard() {
+            try {
+                const res = await fetch(`${API_URL}/analytics/dashboard`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const t = data.today || {};
+                    document.getElementById('kpiTodaySales').textContent = `R ${parseFloat(t.net_sales || 0).toFixed(2)}`;
+                    document.getElementById('kpiTodayTransactions').textContent = `${t.transaction_count || 0} transactions`;
+                    document.getElementById('kpiGrossProfit').textContent = `R ${parseFloat(t.gross_profit || 0).toFixed(2)}`;
+                    const margin = t.net_sales > 0 ? ((t.gross_profit / t.net_sales) * 100).toFixed(1) : '0';
+                    document.getElementById('kpiProfitMargin').textContent = `${margin}% margin`;
+                    document.getElementById('kpiAvgTransaction').textContent = `R ${parseFloat(t.avg_transaction_value || 0).toFixed(2)}`;
+                    document.getElementById('kpiAvgBasket').textContent = `${parseFloat(t.avg_basket_size || 0).toFixed(1)} items avg`;
+                }
+            } catch (e) {
+                console.log('Dashboard load error:', e);
+            }
+
+            // Load alerts
+            try {
+                const alertRes = await fetch(`${API_URL}/loss-prevention/alerts?status=open&limit=5`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (alertRes.ok) {
+                    const alertData = await alertRes.json();
+                    const alerts = alertData.alerts || [];
+                    const alertsDiv = document.getElementById('dashboardAlerts');
+                    if (alerts.length === 0) {
+                        alertsDiv.innerHTML = '<div class="empty-state"><div class="icon">&#9989;</div><p>No active alerts</p></div>';
+                    } else {
+                        alertsDiv.innerHTML = alerts.map(a => `
+                            <div class="alert-row ${a.severity === 'critical' ? 'critical' : 'warning'}">
+                                <div>
+                                    <strong>${a.alert_type}</strong>
+                                    <div style="font-size:12px;color:#666;">${a.severity} - ${new Date(a.created_at).toLocaleString()}</div>
+                                </div>
+                                <span class="status-badge ${a.status === 'open' ? 'alert' : 'pending'}">${a.status}</span>
+                            </div>
+                        `).join('');
+                    }
+                }
+            } catch (e) {
+                console.log('Alerts load error:', e);
+            }
+
+            // Load locations
+            try {
+                const locRes = await fetch(`${API_URL}/locations`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (locRes.ok) {
+                    const locData = await locRes.json();
+                    const locations = locData.locations || [];
+                    const tbody = document.getElementById('locationPerformanceBody');
+                    if (locations.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">No locations configured</td></tr>';
+                    } else {
+                        tbody.innerHTML = locations.map(l => `
+                            <tr>
+                                <td><strong>${l.location_name}</strong></td>
+                                <td>${l.location_type}</td>
+                                <td>-</td>
+                                <td>-</td>
+                                <td><span class="status-badge ${l.is_active ? 'active' : 'closed'}">${l.is_active ? 'Active' : 'Inactive'}</span></td>
+                            </tr>
+                        `).join('');
+                    }
+                }
+            } catch (e) {
+                console.log('Locations load error:', e);
+            }
+        }
+
+        // Inventory
+        async function loadInventoryLevels() {
+            try {
+                const res = await fetch(`${API_URL}/inventory?include_zero=true`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const items = data.inventory || [];
+                    const tbody = document.getElementById('inventoryTableBody');
+                    if (items.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">No inventory records. Inventory data will populate once locations have stock.</td></tr>';
+                    } else {
+                        tbody.innerHTML = items.map(i => {
+                            const available = (i.quantity_on_hand || 0) - (i.quantity_reserved || 0);
+                            const isLow = i.reorder_point && available <= i.reorder_point;
+                            return `<tr style="${isLow ? 'background:#fff3e0;' : ''}">
+                                <td>${i.product_name || 'Unknown'}</td>
+                                <td>${i.product_code || '-'}</td>
+                                <td>${i.category || '-'}</td>
+                                <td>${i.quantity_on_hand || 0}</td>
+                                <td>${i.quantity_reserved || 0}</td>
+                                <td>${i.quantity_in_transit || 0}</td>
+                                <td><strong>${available}</strong></td>
+                                <td>${i.reorder_point || '-'}</td>
+                            </tr>`;
+                        }).join('');
+                    }
+                }
+            } catch (e) {
+                console.log('Inventory load error:', e);
+                document.getElementById('inventoryTableBody').innerHTML =
+                    '<tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">Inventory data will appear once stock is configured for locations</td></tr>';
+            }
+        }
+
+        function showInventoryTab(tab, evt) {
+            document.querySelectorAll('#inventoryLayout .sub-tab').forEach(t => t.classList.remove('active'));
+            if (evt && evt.target) evt.target.classList.add('active');
+
+            document.getElementById('invStockLevels').style.display = tab === 'stock-levels' ? 'block' : 'none';
+            document.getElementById('invTransfers').style.display = tab === 'transfers' ? 'block' : 'none';
+            document.getElementById('invPurchaseOrders').style.display = tab === 'purchase-orders' ? 'block' : 'none';
+            document.getElementById('invSuppliers').style.display = tab === 'suppliers' ? 'block' : 'none';
+
+            if (tab === 'transfers') loadTransfers();
+            if (tab === 'purchase-orders') loadPurchaseOrders();
+            if (tab === 'suppliers') loadSuppliers();
+        }
+
+        async function loadTransfers() {
+            try {
+                const res = await fetch(`${API_URL}/transfers`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const transfers = data.transfers || [];
+                    const tbody = document.getElementById('transfersTableBody');
+                    if (transfers.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">No transfers yet</td></tr>';
+                    } else {
+                        tbody.innerHTML = transfers.map(t => `
+                            <tr>
+                                <td>${t.transfer_number}</td>
+                                <td>${t.from_location_name || t.from_location_id}</td>
+                                <td>${t.to_location_name || t.to_location_id}</td>
+                                <td>${t.item_count || '-'}</td>
+                                <td><span class="status-badge ${t.status === 'received' ? 'active' : 'pending'}">${t.status}</span></td>
+                                <td>${new Date(t.created_at).toLocaleDateString()}</td>
+                            </tr>
+                        `).join('');
+                    }
+                }
+            } catch (e) {
+                console.log('Transfers load error:', e);
+            }
+        }
+
+        async function loadPurchaseOrders() {
+            try {
+                const res = await fetch(`${API_URL}/purchase-orders`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const orders = data.purchase_orders || [];
+                    const tbody = document.getElementById('poTableBody');
+                    if (orders.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">No purchase orders yet</td></tr>';
+                    } else {
+                        tbody.innerHTML = orders.map(po => `
+                            <tr>
+                                <td>${po.po_number}</td>
+                                <td>${po.supplier_name || po.supplier_id}</td>
+                                <td>${po.location_name || po.delivery_location_id}</td>
+                                <td>R ${parseFloat(po.total_amount || 0).toFixed(2)}</td>
+                                <td><span class="status-badge ${po.status === 'received' ? 'active' : 'pending'}">${po.status}</span></td>
+                                <td>${po.expected_delivery_date ? new Date(po.expected_delivery_date).toLocaleDateString() : '-'}</td>
+                            </tr>
+                        `).join('');
+                    }
+                }
+            } catch (e) {
+                console.log('PO load error:', e);
+            }
+        }
+
+        async function loadSuppliers() {
+            try {
+                const res = await fetch(`${API_URL}/suppliers`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const suppliers = data.suppliers || [];
+                    const tbody = document.getElementById('suppliersTableBody');
+                    if (suppliers.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">No suppliers yet</td></tr>';
+                    } else {
+                        tbody.innerHTML = suppliers.map(s => `
+                            <tr>
+                                <td>${s.supplier_code}</td>
+                                <td>${s.supplier_name}</td>
+                                <td>${s.contact_name || '-'}</td>
+                                <td>${s.contact_email || '-'}</td>
+                                <td>${s.payment_terms || 30} days</td>
+                                <td>${s.is_preferred ? '<span class="status-badge active">Preferred</span>' : '-'}</td>
+                            </tr>
+                        `).join('');
+                    }
+                }
+            } catch (e) {
+                console.log('Suppliers load error:', e);
+            }
+        }
+
+        function searchInventory() { /* placeholder for search filtering */ }
+        function filterInventory() { /* placeholder for filter */ }
+        function showNewTransferModal() { showNotification('Transfer creation coming soon', 'info'); }
+        function showNewPOModal() { showNotification('PO creation coming soon', 'info'); }
+        function showNewSupplierModal() { showNotification('Supplier creation coming soon', 'info'); }
+
+        // Employees
+        async function loadEmployees() {
+            try {
+                const res = await fetch(`${API_URL}/employees`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const employees = data.employees || [];
+                    const tbody = document.getElementById('employeesTableBody');
+                    if (employees.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;padding:20px;">No employees found</td></tr>';
+                    } else {
+                        tbody.innerHTML = employees.map(e => `
+                            <tr>
+                                <td><strong>${e.full_name}</strong></td>
+                                <td>${e.employee_id || '-'}</td>
+                                <td>${(e.role || '').replace(/_/g, ' ')}</td>
+                                <td>${e.department || '-'}</td>
+                                <td><span class="status-badge ${e.employment_status === 'active' ? 'active' : 'pending'}">${e.employment_status || 'active'}</span></td>
+                                <td>${e.hire_date ? new Date(e.hire_date).toLocaleDateString() : '-'}</td>
+                                <td>${e.last_login_at ? new Date(e.last_login_at).toLocaleString() : 'Never'}</td>
+                            </tr>
+                        `).join('');
+                    }
+                }
+            } catch (e) {
+                console.log('Employees load error:', e);
+            }
+        }
+
+        function showEmployeeTab(tab, evt) {
+            document.querySelectorAll('#employeesLayout .sub-tab').forEach(t => t.classList.remove('active'));
+            if (evt && evt.target) evt.target.classList.add('active');
+
+            document.getElementById('empRoster').style.display = tab === 'roster' ? 'block' : 'none';
+            document.getElementById('empScheduling').style.display = tab === 'scheduling' ? 'block' : 'none';
+            document.getElementById('empTimeClock').style.display = tab === 'time-clock' ? 'block' : 'none';
+
+            if (tab === 'scheduling') loadSchedule();
+            if (tab === 'time-clock') loadTimeClock();
+        }
+
+        async function loadSchedule() {
+            const dateInput = document.getElementById('scheduleDate');
+            if (!dateInput.value) {
+                dateInput.value = new Date().toISOString().split('T')[0];
+            }
+            try {
+                const res = await fetch(`${API_URL}/scheduling/shifts?date=${dateInput.value}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const shifts = data.shifts || [];
+                    const tbody = document.getElementById('scheduleTableBody');
+                    if (shifts.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">No shifts scheduled for this date</td></tr>';
+                    } else {
+                        tbody.innerHTML = shifts.map(s => `
+                            <tr>
+                                <td>${s.full_name || s.user_id}</td>
+                                <td>${s.shift_date}</td>
+                                <td>${s.scheduled_start}</td>
+                                <td>${s.scheduled_end}</td>
+                                <td>${s.break_duration_minutes || 60} min</td>
+                                <td><span class="status-badge ${s.status === 'completed' ? 'active' : 'pending'}">${s.status}</span></td>
+                            </tr>
+                        `).join('');
+                    }
+                }
+            } catch (e) {
+                console.log('Schedule load error:', e);
+            }
+        }
+
+        async function loadTimeClock() {
+            try {
+                const res = await fetch(`${API_URL}/scheduling/time/status`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const statusText = document.getElementById('clockStatusText');
+                    const clockInBtn = document.getElementById('clockInBtn');
+                    const clockOutBtn = document.getElementById('clockOutBtn');
+
+                    if (data.clocked_in) {
+                        statusText.textContent = `Clocked in since ${new Date(data.clock_in).toLocaleTimeString()}`;
+                        statusText.style.color = '#4caf50';
+                        clockInBtn.style.display = 'none';
+                        clockOutBtn.style.display = 'inline-block';
+                    } else {
+                        statusText.textContent = 'Not clocked in';
+                        statusText.style.color = '#666';
+                        clockInBtn.style.display = 'inline-block';
+                        clockOutBtn.style.display = 'none';
+                    }
+                }
+            } catch (e) {
+                console.log('Time clock status error:', e);
+            }
+        }
+
+        async function clockIn() {
+            try {
+                const res = await fetch(`${API_URL}/scheduling/time/clock-in`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                });
+                if (res.ok) {
+                    showNotification('Clocked in successfully', 'success');
+                    loadTimeClock();
+                } else {
+                    const data = await res.json();
+                    showNotification(data.error || 'Clock in failed', 'error');
+                }
+            } catch (e) {
+                showNotification('Clock in failed', 'error');
+            }
+        }
+
+        async function clockOut() {
+            try {
+                const res = await fetch(`${API_URL}/scheduling/time/clock-out`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+                });
+                if (res.ok) {
+                    showNotification('Clocked out successfully', 'success');
+                    loadTimeClock();
+                } else {
+                    const data = await res.json();
+                    showNotification(data.error || 'Clock out failed', 'error');
+                }
+            } catch (e) {
+                showNotification('Clock out failed', 'error');
+            }
+        }
+
+        function searchEmployees() { /* placeholder */ }
+        function filterEmployees() { /* placeholder */ }
+        function showNewEmployeeModal() { showNotification('Employee creation coming soon', 'info'); }
+        function showNewShiftModal() { showNotification('Shift creation coming soon', 'info'); }
+
+        // Loyalty
+        async function loadLoyaltyPrograms() {
+            try {
+                const res = await fetch(`${API_URL}/loyalty/programs`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const programs = data.programs || [];
+                    const tbody = document.getElementById('loyaltyProgramsBody');
+                    if (programs.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">No loyalty programs configured. Create one to get started.</td></tr>';
+                    } else {
+                        tbody.innerHTML = programs.map(p => `
+                            <tr>
+                                <td><strong>${p.program_name}</strong></td>
+                                <td>${p.points_per_currency}</td>
+                                <td>R ${parseFloat(p.points_value || 0).toFixed(2)}</td>
+                                <td>${p.minimum_redemption} pts</td>
+                                <td>${p.points_expiry_months ? p.points_expiry_months + ' months' : 'Never'}</td>
+                                <td><span class="status-badge ${p.is_active ? 'active' : 'closed'}">${p.is_active ? 'Active' : 'Inactive'}</span></td>
+                            </tr>
+                        `).join('');
+                    }
+                }
+            } catch (e) {
+                console.log('Loyalty programs load error:', e);
+            }
+        }
+
+        function showLoyaltyTab(tab, evt) {
+            document.querySelectorAll('#loyaltyLayout .sub-tab').forEach(t => t.classList.remove('active'));
+            if (evt && evt.target) evt.target.classList.add('active');
+
+            document.getElementById('loyPrograms').style.display = tab === 'programs' ? 'block' : 'none';
+            document.getElementById('loyMembers').style.display = tab === 'members' ? 'block' : 'none';
+            document.getElementById('loyPromotions').style.display = tab === 'promotions' ? 'block' : 'none';
+
+            if (tab === 'promotions') loadPromotions();
+        }
+
+        async function loadPromotions() {
+            try {
+                const res = await fetch(`${API_URL}/promotions`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const promos = data.promotions || [];
+                    const tbody = document.getElementById('promotionsTableBody');
+                    if (promos.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">No promotions configured</td></tr>';
+                    } else {
+                        tbody.innerHTML = promos.map(p => {
+                            const now = new Date();
+                            const start = new Date(p.start_date);
+                            const end = new Date(p.end_date);
+                            let status = 'Active';
+                            let statusClass = 'active';
+                            if (now < start) { status = 'Upcoming'; statusClass = 'pending'; }
+                            if (now > end) { status = 'Expired'; statusClass = 'closed'; }
+                            if (!p.is_active) { status = 'Inactive'; statusClass = 'closed'; }
+
+                            return `<tr>
+                                <td><strong>${p.promotion_name}</strong></td>
+                                <td>${p.promotion_code || '-'}</td>
+                                <td>${p.promotion_type}</td>
+                                <td>${p.discount_percentage ? p.discount_percentage + '%' : p.discount_value ? 'R ' + p.discount_value : '-'}</td>
+                                <td>${start.toLocaleDateString()}</td>
+                                <td>${end.toLocaleDateString()}</td>
+                                <td>${p.current_usage_count || 0}${p.usage_limit ? '/' + p.usage_limit : ''}</td>
+                                <td><span class="status-badge ${statusClass}">${status}</span></td>
+                            </tr>`;
+                        }).join('');
+                    }
+                }
+            } catch (e) {
+                console.log('Promotions load error:', e);
+            }
+        }
+
+        function searchLoyaltyMembers() { /* placeholder */ }
+        function showNewProgramModal() { showNotification('Program creation coming soon', 'info'); }
+        function showEnrollCustomerModal() { showNotification('Customer enrollment coming soon', 'info'); }
+        function showNewPromotionModal() { showNotification('Promotion creation coming soon', 'info'); }
+
+        // ========== COMPANY & USER MANAGEMENT ==========
+
+        async function loadCompanies() {
+            try {
+                const res = await fetch(`${API_URL}/auth/companies/all`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const companies = data.companies || [];
+                    const tbody = document.getElementById('companiesTableBody');
+                    if (companies.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">No companies found. Create your first company.</td></tr>';
+                    } else {
+                        tbody.innerHTML = companies.map(c => `
+                            <tr>
+                                <td><strong>${c.company_name}</strong></td>
+                                <td>${c.trading_name || '-'}</td>
+                                <td>${c.registration_number || '-'}</td>
+                                <td>${c.vat_number || '-'}</td>
+                                <td>${c.contact_email || '-'}</td>
+                                <td>${c.user_count || 0}</td>
+                                <td><span class="status-badge ${c.is_active ? 'active' : 'closed'}">${c.is_active ? 'Active' : 'Inactive'}</span></td>
+                                <td>
+                                    <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="editCompany(${c.id})">Edit</button>
+                                    <button class="btn btn-primary" style="padding:4px 10px;font-size:12px;" onclick="viewCompanyUsers(${c.id})">Users</button>
+                                </td>
+                            </tr>
+                        `).join('');
+                    }
+                } else {
+                    const err = await res.json();
+                    document.getElementById('companiesTableBody').innerHTML =
+                        `<tr><td colspan="8" style="text-align:center;color:#c62828;padding:20px;">${err.error || 'Failed to load companies'}</td></tr>`;
+                }
+            } catch (e) {
+                console.log('Companies load error:', e);
+            }
+        }
+
+        function showAddCompanyModal() {
+            document.getElementById('companyModalTitle').textContent = 'Add Company';
+            document.getElementById('companyName').value = '';
+            document.getElementById('companyTradingName').value = '';
+            document.getElementById('companyRegNumber').value = '';
+            document.getElementById('companyVatNumber').value = '';
+            document.getElementById('companyEmail').value = '';
+            document.getElementById('companyPhone').value = '';
+            document.getElementById('companyAddress').value = '';
+            document.getElementById('companyModal').style.display = 'flex';
+        }
+
+        function closeCompanyModal() {
+            document.getElementById('companyModal').style.display = 'none';
+        }
+
+        async function saveCompany() {
+            const name = document.getElementById('companyName').value.trim();
+            if (!name) {
+                showNotification('Company name is required', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/auth/companies/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        company_name: name,
+                        trading_name: document.getElementById('companyTradingName').value.trim() || null,
+                        registration_number: document.getElementById('companyRegNumber').value.trim() || null,
+                        vat_number: document.getElementById('companyVatNumber').value.trim() || null,
+                        contact_email: document.getElementById('companyEmail').value.trim() || null,
+                        contact_phone: document.getElementById('companyPhone').value.trim() || null,
+                        address: document.getElementById('companyAddress').value.trim() || null
+                    })
+                });
+
+                if (res.ok) {
+                    showNotification('Company created successfully! It has its own separate data.', 'success');
+                    closeCompanyModal();
+                    loadCompanies();
+                } else {
+                    const err = await res.json();
+                    showNotification(err.error || 'Failed to create company', 'error');
+                }
+            } catch (e) {
+                showNotification('Failed to create company', 'error');
+            }
+        }
+
+        function editCompany(id) {
+            showNotification('Company editing coming soon', 'info');
+        }
+
+        function viewCompanyUsers(companyId) {
+            // Switch to Users section and pre-select the company
+            showSettings('users', null);
+            document.querySelectorAll('.settings-menu-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.textContent === 'Users') item.classList.add('active');
+            });
+            loadCompaniesForUserFilter().then(() => {
+                document.getElementById('userCompanyFilter').value = companyId;
+                loadCompanyUsers();
+            });
+        }
+
+        async function loadCompaniesForUserFilter() {
+            try {
+                const res = await fetch(`${API_URL}/auth/companies/all`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const companies = data.companies || [];
+                    const select = document.getElementById('userCompanyFilter');
+                    const userSelect = document.getElementById('userCompanySelect');
+                    const opts = '<option value="">Select company...</option>' +
+                        companies.map(c => `<option value="${c.id}">${c.company_name}${c.trading_name ? ' (' + c.trading_name + ')' : ''}</option>`).join('');
+                    select.innerHTML = opts;
+                    userSelect.innerHTML = opts;
+                }
+            } catch (e) {
+                console.log('Error loading companies for filter:', e);
+            }
+        }
+
+        async function loadCompanyUsers() {
+            const companyId = document.getElementById('userCompanyFilter').value;
+            const tbody = document.getElementById('usersTableBody');
+
+            if (!companyId) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">Select a company to view its users</td></tr>';
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/auth/companies/${companyId}/users`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const users = data.users || [];
+                    if (users.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">No users in this company. Add one to get started.</td></tr>';
+                    } else {
+                        tbody.innerHTML = users.map(u => `
+                            <tr>
+                                <td><strong>${u.full_name}</strong></td>
+                                <td>${u.username}</td>
+                                <td>${u.email || '-'}</td>
+                                <td><span class="status-badge active" style="background:#e8eaf6;color:#3949ab;">${(u.role || '').replace(/_/g, ' ')}</span></td>
+                                <td>${u.employee_id || '-'}</td>
+                                <td><span class="status-badge ${u.is_active ? 'active' : 'closed'}">${u.is_active ? 'Active' : 'Inactive'}</span></td>
+                                <td>${u.last_login_at ? new Date(u.last_login_at).toLocaleString() : 'Never'}</td>
+                                <td>
+                                    <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;color:#c62828;" onclick="removeUserFromCompany(${companyId}, ${u.id}, '${u.full_name}')">Remove</button>
+                                </td>
+                            </tr>
+                        `).join('');
+                    }
+                } else {
+                    const err = await res.json();
+                    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#c62828;padding:20px;">${err.error || 'Failed to load users'}</td></tr>`;
+                }
+            } catch (e) {
+                console.log('Users load error:', e);
+            }
+        }
+
+        function showAddUserModal() {
+            document.getElementById('userFullName').value = '';
+            document.getElementById('userUsername').value = '';
+            document.getElementById('userEmail').value = '';
+            document.getElementById('userPassword').value = '';
+            document.getElementById('userRole').value = '';
+            document.getElementById('userEmployeeId').value = '';
+
+            // Pre-select company if one is already selected
+            const currentCompany = document.getElementById('userCompanyFilter').value;
+            if (currentCompany) {
+                document.getElementById('userCompanySelect').value = currentCompany;
+            }
+
+            document.getElementById('userModal').style.display = 'flex';
+        }
+
+        function closeUserModal() {
+            document.getElementById('userModal').style.display = 'none';
+        }
+
+        async function saveUser() {
+            const companyId = document.getElementById('userCompanySelect').value;
+            const fullName = document.getElementById('userFullName').value.trim();
+            const username = document.getElementById('userUsername').value.trim();
+            const password = document.getElementById('userPassword').value;
+            const role = document.getElementById('userRole').value;
+
+            if (!companyId) { showNotification('Please select a company', 'error'); return; }
+            if (!fullName) { showNotification('Full name is required', 'error'); return; }
+            if (!username) { showNotification('Username is required', 'error'); return; }
+            if (!password || password.length < 6) { showNotification('Password must be at least 6 characters', 'error'); return; }
+            if (!role) { showNotification('Please select a role', 'error'); return; }
+
+            try {
+                const res = await fetch(`${API_URL}/auth/companies/${companyId}/users`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username,
+                        email: document.getElementById('userEmail').value.trim() || null,
+                        password,
+                        full_name: fullName,
+                        role,
+                        employee_id: document.getElementById('userEmployeeId').value.trim() || null
+                    })
+                });
+
+                if (res.ok) {
+                    showNotification(`User "${fullName}" created and added to company`, 'success');
+                    closeUserModal();
+                    // Refresh user list if viewing the same company
+                    document.getElementById('userCompanyFilter').value = companyId;
+                    loadCompanyUsers();
+                } else {
+                    const err = await res.json();
+                    showNotification(err.error || 'Failed to create user', 'error');
+                }
+            } catch (e) {
+                showNotification('Failed to create user', 'error');
+            }
+        }
+
+        async function removeUserFromCompany(companyId, userId, userName) {
+            if (!confirm(`Remove "${userName}" from this company? They will lose access to all company data.`)) return;
+
+            try {
+                const res = await fetch(`${API_URL}/auth/companies/${companyId}/users/${userId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    showNotification(`${userName} removed from company`, 'success');
+                    loadCompanyUsers();
+                } else {
+                    const err = await res.json();
+                    showNotification(err.error || 'Failed to remove user', 'error');
+                }
+            } catch (e) {
+                showNotification('Failed to remove user', 'error');
+            }
+        }
     </script>
 </body>
 </html>

@@ -502,6 +502,732 @@ async function initDatabase() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`);
 
+    // ========== PHASE 1: MULTI-LOCATION HIERARCHY ==========
+
+    // Locations table (HQ -> Region -> District -> Store -> Warehouse)
+    await pool.query(`CREATE TABLE IF NOT EXISTS locations (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      parent_location_id INTEGER,
+      location_code VARCHAR(50) NOT NULL,
+      location_name VARCHAR(255) NOT NULL,
+      location_type VARCHAR(50) NOT NULL DEFAULT 'store',
+      address_line_1 VARCHAR(255),
+      address_line_2 VARCHAR(255),
+      city VARCHAR(100),
+      state_province VARCHAR(100),
+      postal_code VARCHAR(20),
+      country VARCHAR(100) DEFAULT 'South Africa',
+      timezone VARCHAR(50) DEFAULT 'Africa/Johannesburg',
+      latitude DECIMAL(10,8),
+      longitude DECIMAL(11,8),
+      square_footage INTEGER,
+      manager_user_id INTEGER,
+      contact_phone VARCHAR(50),
+      contact_email VARCHAR(255),
+      operating_hours JSONB,
+      is_active INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(company_id, location_code)
+    )`);
+
+    // Location Settings with inheritance
+    await pool.query(`CREATE TABLE IF NOT EXISTS location_settings (
+      id SERIAL PRIMARY KEY,
+      location_id INTEGER NOT NULL,
+      setting_key VARCHAR(100) NOT NULL,
+      setting_value TEXT,
+      inherit_from_parent INTEGER DEFAULT 1,
+      updated_by_user_id INTEGER,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(location_id, setting_key)
+    )`);
+
+    // User Location Access (multi-location assignments)
+    await pool.query(`CREATE TABLE IF NOT EXISTS user_location_access (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      role VARCHAR(50) NOT NULL,
+      is_primary INTEGER DEFAULT 0,
+      can_manage_children INTEGER DEFAULT 0,
+      granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      granted_by_user_id INTEGER,
+      is_active INTEGER DEFAULT 1,
+      UNIQUE(user_id, location_id)
+    )`);
+
+    // Add location_id to existing tables if not exists
+    await pool.query(`ALTER TABLE tills ADD COLUMN IF NOT EXISTS location_id INTEGER`);
+    await pool.query(`ALTER TABLE till_sessions ADD COLUMN IF NOT EXISTS location_id INTEGER`);
+    await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS location_id INTEGER`);
+    await pool.query(`ALTER TABLE stock_adjustments ADD COLUMN IF NOT EXISTS location_id INTEGER`);
+    await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS home_location_id INTEGER`);
+
+    // ========== PHASE 2: ENTERPRISE USER MANAGEMENT ==========
+
+    // Add enterprise user fields
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS employee_id VARCHAR(50)`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS manager_user_id INTEGER`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS department VARCHAR(100)`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS hire_date DATE`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS termination_date DATE`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS employment_status VARCHAR(50) DEFAULT 'active'`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS hourly_rate DECIMAL(10,2)`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS salary DECIMAL(12,2)`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS sso_provider VARCHAR(50)`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS sso_external_id VARCHAR(255)`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS mfa_enabled INTEGER DEFAULT 0`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS mfa_secret VARCHAR(255)`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_changed_at TIMESTAMP`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password INTEGER DEFAULT 0`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_photo_url VARCHAR(500)`);
+
+    // MFA Backup Codes
+    await pool.query(`CREATE TABLE IF NOT EXISTS mfa_backup_codes (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      code_hash VARCHAR(255) NOT NULL,
+      is_used INTEGER DEFAULT 0,
+      used_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // User Sessions (device tracking)
+    await pool.query(`CREATE TABLE IF NOT EXISTS user_sessions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      session_token VARCHAR(255) UNIQUE NOT NULL,
+      device_type VARCHAR(50),
+      device_name VARCHAR(255),
+      ip_address VARCHAR(50),
+      user_agent TEXT,
+      location_id INTEGER,
+      is_active INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      expires_at TIMESTAMP NOT NULL
+    )`);
+
+    // Shift Schedules
+    await pool.query(`CREATE TABLE IF NOT EXISTS shift_schedules (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      shift_date DATE NOT NULL,
+      scheduled_start TIME NOT NULL,
+      scheduled_end TIME NOT NULL,
+      break_duration_minutes INTEGER DEFAULT 60,
+      actual_start TIMESTAMP,
+      actual_end TIMESTAMP,
+      status VARCHAR(50) DEFAULT 'scheduled',
+      notes TEXT,
+      created_by_user_id INTEGER,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Time Entries
+    await pool.query(`CREATE TABLE IF NOT EXISTS time_entries (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      location_id INTEGER,
+      shift_schedule_id INTEGER,
+      clock_in TIMESTAMP NOT NULL,
+      clock_out TIMESTAMP,
+      break_start TIMESTAMP,
+      break_end TIMESTAMP,
+      total_hours DECIMAL(5,2),
+      overtime_hours DECIMAL(5,2),
+      entry_type VARCHAR(50) DEFAULT 'regular',
+      approved_by_user_id INTEGER,
+      approved_at TIMESTAMP,
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // SSO Configurations
+    await pool.query(`CREATE TABLE IF NOT EXISTS sso_configurations (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      provider_type VARCHAR(50) NOT NULL,
+      provider_name VARCHAR(100),
+      client_id VARCHAR(255),
+      tenant_id VARCHAR(255),
+      metadata_url VARCHAR(500),
+      ldap_server VARCHAR(255),
+      ldap_base_dn VARCHAR(255),
+      is_active INTEGER DEFAULT 1,
+      auto_provision_users INTEGER DEFAULT 0,
+      default_role VARCHAR(50) DEFAULT 'cashier',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Password History
+    await pool.query(`CREATE TABLE IF NOT EXISTS password_history (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      password_hash VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // ========== PHASE 3: ADVANCED INVENTORY ==========
+
+    // Warehouses
+    await pool.query(`CREATE TABLE IF NOT EXISTS warehouses (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      warehouse_code VARCHAR(50) NOT NULL,
+      warehouse_name VARCHAR(255) NOT NULL,
+      warehouse_type VARCHAR(50) DEFAULT 'store_backroom',
+      capacity_sqft INTEGER,
+      temperature_controlled INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(company_id, warehouse_code)
+    )`);
+
+    // Multi-Location Inventory
+    await pool.query(`CREATE TABLE IF NOT EXISTS inventory (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      product_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      warehouse_id INTEGER,
+      quantity_on_hand INTEGER DEFAULT 0,
+      quantity_reserved INTEGER DEFAULT 0,
+      quantity_on_order INTEGER DEFAULT 0,
+      quantity_in_transit INTEGER DEFAULT 0,
+      reorder_point INTEGER,
+      reorder_quantity INTEGER,
+      max_stock_level INTEGER,
+      bin_location VARCHAR(50),
+      last_counted_at TIMESTAMP,
+      last_received_at TIMESTAMP,
+      last_sold_at TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(product_id, location_id, COALESCE(warehouse_id, 0))
+    )`);
+
+    // Stock Transfers
+    await pool.query(`CREATE TABLE IF NOT EXISTS stock_transfers (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      transfer_number VARCHAR(50) NOT NULL,
+      from_location_id INTEGER NOT NULL,
+      to_location_id INTEGER NOT NULL,
+      from_warehouse_id INTEGER,
+      to_warehouse_id INTEGER,
+      status VARCHAR(50) DEFAULT 'draft',
+      requested_by_user_id INTEGER NOT NULL,
+      approved_by_user_id INTEGER,
+      shipped_at TIMESTAMP,
+      received_at TIMESTAMP,
+      expected_arrival_date DATE,
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(company_id, transfer_number)
+    )`);
+
+    // Stock Transfer Items
+    await pool.query(`CREATE TABLE IF NOT EXISTS stock_transfer_items (
+      id SERIAL PRIMARY KEY,
+      transfer_id INTEGER NOT NULL,
+      product_id INTEGER NOT NULL,
+      quantity_requested INTEGER NOT NULL,
+      quantity_shipped INTEGER,
+      quantity_received INTEGER,
+      variance_reason TEXT
+    )`);
+
+    // Suppliers
+    await pool.query(`CREATE TABLE IF NOT EXISTS suppliers (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      supplier_code VARCHAR(50) NOT NULL,
+      supplier_name VARCHAR(255) NOT NULL,
+      contact_name VARCHAR(255),
+      contact_email VARCHAR(255),
+      contact_phone VARCHAR(50),
+      address TEXT,
+      payment_terms INTEGER DEFAULT 30,
+      credit_limit DECIMAL(12,2),
+      current_balance DECIMAL(12,2) DEFAULT 0,
+      tax_reference VARCHAR(50),
+      bank_name VARCHAR(100),
+      bank_account VARCHAR(50),
+      bank_branch_code VARCHAR(20),
+      lead_time_days INTEGER DEFAULT 7,
+      minimum_order_value DECIMAL(10,2),
+      is_preferred INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(company_id, supplier_code)
+    )`);
+
+    // Product Suppliers
+    await pool.query(`CREATE TABLE IF NOT EXISTS product_suppliers (
+      id SERIAL PRIMARY KEY,
+      product_id INTEGER NOT NULL,
+      supplier_id INTEGER NOT NULL,
+      supplier_product_code VARCHAR(100),
+      supplier_product_name VARCHAR(255),
+      cost_price DECIMAL(10,2) NOT NULL,
+      minimum_order_quantity INTEGER DEFAULT 1,
+      pack_size INTEGER DEFAULT 1,
+      lead_time_days INTEGER,
+      is_preferred INTEGER DEFAULT 0,
+      last_ordered_at TIMESTAMP,
+      UNIQUE(product_id, supplier_id)
+    )`);
+
+    // Purchase Orders
+    await pool.query(`CREATE TABLE IF NOT EXISTS purchase_orders (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      po_number VARCHAR(50) NOT NULL,
+      supplier_id INTEGER NOT NULL,
+      delivery_location_id INTEGER NOT NULL,
+      delivery_warehouse_id INTEGER,
+      status VARCHAR(50) DEFAULT 'draft',
+      order_date DATE,
+      expected_delivery_date DATE,
+      actual_delivery_date DATE,
+      subtotal DECIMAL(12,2),
+      tax_amount DECIMAL(12,2),
+      total_amount DECIMAL(12,2),
+      payment_terms INTEGER,
+      notes TEXT,
+      created_by_user_id INTEGER NOT NULL,
+      approved_by_user_id INTEGER,
+      approved_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(company_id, po_number)
+    )`);
+
+    // Purchase Order Items
+    await pool.query(`CREATE TABLE IF NOT EXISTS purchase_order_items (
+      id SERIAL PRIMARY KEY,
+      purchase_order_id INTEGER NOT NULL,
+      product_id INTEGER NOT NULL,
+      quantity_ordered INTEGER NOT NULL,
+      quantity_received INTEGER DEFAULT 0,
+      unit_cost DECIMAL(10,2) NOT NULL,
+      total_cost DECIMAL(12,2) NOT NULL,
+      notes TEXT
+    )`);
+
+    // Goods Receipts
+    await pool.query(`CREATE TABLE IF NOT EXISTS goods_receipts (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      grn_number VARCHAR(50) NOT NULL,
+      purchase_order_id INTEGER,
+      supplier_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      warehouse_id INTEGER,
+      receipt_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      received_by_user_id INTEGER NOT NULL,
+      notes TEXT,
+      UNIQUE(company_id, grn_number)
+    )`);
+
+    // Goods Receipt Items
+    await pool.query(`CREATE TABLE IF NOT EXISTS goods_receipt_items (
+      id SERIAL PRIMARY KEY,
+      goods_receipt_id INTEGER NOT NULL,
+      po_item_id INTEGER,
+      product_id INTEGER NOT NULL,
+      quantity_received INTEGER NOT NULL,
+      quantity_accepted INTEGER NOT NULL,
+      quantity_rejected INTEGER DEFAULT 0,
+      rejection_reason TEXT,
+      batch_number VARCHAR(100),
+      expiry_date DATE,
+      bin_location VARCHAR(50)
+    )`);
+
+    // Reorder Rules
+    await pool.query(`CREATE TABLE IF NOT EXISTS reorder_rules (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      location_id INTEGER,
+      product_id INTEGER,
+      category VARCHAR(100),
+      reorder_method VARCHAR(50) DEFAULT 'min_max',
+      min_stock INTEGER,
+      max_stock INTEGER,
+      safety_stock INTEGER,
+      review_period_days INTEGER DEFAULT 7,
+      lead_time_days INTEGER,
+      preferred_supplier_id INTEGER,
+      auto_create_po INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // ========== PHASE 4: ANALYTICS & LOSS PREVENTION ==========
+
+    // Daily Sales Summary (pre-aggregated)
+    await pool.query(`CREATE TABLE IF NOT EXISTS daily_sales_summary (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      summary_date DATE NOT NULL,
+      transaction_count INTEGER DEFAULT 0,
+      item_count INTEGER DEFAULT 0,
+      gross_sales DECIMAL(12,2) DEFAULT 0,
+      discount_amount DECIMAL(12,2) DEFAULT 0,
+      return_amount DECIMAL(12,2) DEFAULT 0,
+      net_sales DECIMAL(12,2) DEFAULT 0,
+      vat_amount DECIMAL(12,2) DEFAULT 0,
+      cost_of_goods DECIMAL(12,2) DEFAULT 0,
+      gross_profit DECIMAL(12,2) DEFAULT 0,
+      cash_sales DECIMAL(12,2) DEFAULT 0,
+      card_sales DECIMAL(12,2) DEFAULT 0,
+      other_sales DECIMAL(12,2) DEFAULT 0,
+      avg_transaction_value DECIMAL(10,2),
+      avg_basket_size DECIMAL(10,2),
+      customer_count INTEGER DEFAULT 0,
+      new_customer_count INTEGER DEFAULT 0,
+      calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(company_id, location_id, summary_date)
+    )`);
+
+    // Hourly Sales Summary
+    await pool.query(`CREATE TABLE IF NOT EXISTS hourly_sales_summary (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      summary_date DATE NOT NULL,
+      hour INTEGER NOT NULL,
+      transaction_count INTEGER DEFAULT 0,
+      net_sales DECIMAL(12,2) DEFAULT 0,
+      item_count INTEGER DEFAULT 0,
+      UNIQUE(company_id, location_id, summary_date, hour)
+    )`);
+
+    // Product Performance
+    await pool.query(`CREATE TABLE IF NOT EXISTS product_performance (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      product_id INTEGER NOT NULL,
+      period_type VARCHAR(20) NOT NULL,
+      period_start DATE NOT NULL,
+      quantity_sold INTEGER DEFAULT 0,
+      revenue DECIMAL(12,2) DEFAULT 0,
+      cost DECIMAL(12,2) DEFAULT 0,
+      profit DECIMAL(12,2) DEFAULT 0,
+      return_count INTEGER DEFAULT 0,
+      discount_count INTEGER DEFAULT 0,
+      UNIQUE(company_id, location_id, product_id, period_type, period_start)
+    )`);
+
+    // KPI Targets
+    await pool.query(`CREATE TABLE IF NOT EXISTS kpi_targets (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      location_id INTEGER,
+      kpi_type VARCHAR(50) NOT NULL,
+      target_value DECIMAL(12,2) NOT NULL,
+      period_type VARCHAR(20) NOT NULL,
+      effective_from DATE NOT NULL,
+      effective_to DATE,
+      created_by_user_id INTEGER,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Scheduled Reports
+    await pool.query(`CREATE TABLE IF NOT EXISTS scheduled_reports (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      report_name VARCHAR(255) NOT NULL,
+      report_type VARCHAR(50) NOT NULL,
+      location_scope VARCHAR(50),
+      location_ids INTEGER[],
+      schedule_type VARCHAR(20) NOT NULL,
+      schedule_time TIME DEFAULT '07:00:00',
+      schedule_day INTEGER,
+      recipients TEXT[],
+      format VARCHAR(20) DEFAULT 'pdf',
+      include_charts INTEGER DEFAULT 1,
+      last_run_at TIMESTAMP,
+      next_run_at TIMESTAMP,
+      is_active INTEGER DEFAULT 1,
+      created_by_user_id INTEGER,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Loss Prevention Rules
+    await pool.query(`CREATE TABLE IF NOT EXISTS loss_prevention_rules (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      rule_name VARCHAR(255) NOT NULL,
+      rule_type VARCHAR(50) NOT NULL,
+      trigger_conditions JSONB NOT NULL,
+      severity VARCHAR(20) DEFAULT 'warning',
+      notify_roles TEXT[],
+      notify_users INTEGER[],
+      auto_lock_user INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Loss Prevention Alerts
+    await pool.query(`CREATE TABLE IF NOT EXISTS loss_prevention_alerts (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      location_id INTEGER,
+      rule_id INTEGER NOT NULL,
+      triggered_by_user_id INTEGER,
+      severity VARCHAR(20) NOT NULL,
+      alert_type VARCHAR(50) NOT NULL,
+      alert_details JSONB NOT NULL,
+      transaction_ids INTEGER[],
+      status VARCHAR(20) DEFAULT 'open',
+      assigned_to_user_id INTEGER,
+      resolution_notes TEXT,
+      resolved_at TIMESTAMP,
+      resolved_by_user_id INTEGER,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Cash Variances
+    await pool.query(`CREATE TABLE IF NOT EXISTS cash_variances (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      location_id INTEGER NOT NULL,
+      till_session_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      variance_date DATE NOT NULL,
+      expected_amount DECIMAL(12,2) NOT NULL,
+      actual_amount DECIMAL(12,2) NOT NULL,
+      variance_amount DECIMAL(12,2) NOT NULL,
+      variance_reason TEXT,
+      is_investigated INTEGER DEFAULT 0,
+      investigated_by_user_id INTEGER,
+      investigation_notes TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Employee Variance Summary
+    await pool.query(`CREATE TABLE IF NOT EXISTS employee_variance_summary (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      period_start DATE NOT NULL,
+      period_end DATE NOT NULL,
+      variance_count INTEGER DEFAULT 0,
+      total_positive_variance DECIMAL(12,2) DEFAULT 0,
+      total_negative_variance DECIMAL(12,2) DEFAULT 0,
+      net_variance DECIMAL(12,2) DEFAULT 0,
+      void_count INTEGER DEFAULT 0,
+      refund_count INTEGER DEFAULT 0,
+      discount_count INTEGER DEFAULT 0,
+      calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(company_id, user_id, period_start)
+    )`);
+
+    // ========== PHASE 5: LOYALTY & PROMOTIONS ==========
+
+    // Loyalty Programs
+    await pool.query(`CREATE TABLE IF NOT EXISTS loyalty_programs (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      program_name VARCHAR(255) NOT NULL,
+      points_per_currency DECIMAL(10,4) DEFAULT 1.0,
+      points_value DECIMAL(10,4) DEFAULT 0.01,
+      minimum_redemption INTEGER DEFAULT 100,
+      points_expiry_months INTEGER,
+      is_active INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Loyalty Tiers
+    await pool.query(`CREATE TABLE IF NOT EXISTS loyalty_tiers (
+      id SERIAL PRIMARY KEY,
+      program_id INTEGER NOT NULL,
+      tier_name VARCHAR(100) NOT NULL,
+      tier_order INTEGER NOT NULL,
+      min_points_required INTEGER NOT NULL,
+      min_spend_required DECIMAL(12,2),
+      points_multiplier DECIMAL(5,2) DEFAULT 1.0,
+      benefits JSONB,
+      color_code VARCHAR(7),
+      icon_url VARCHAR(500),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Customer Loyalty
+    await pool.query(`CREATE TABLE IF NOT EXISTS customer_loyalty (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER NOT NULL,
+      program_id INTEGER NOT NULL,
+      loyalty_number VARCHAR(50) UNIQUE,
+      current_tier_id INTEGER,
+      points_balance INTEGER DEFAULT 0,
+      lifetime_points INTEGER DEFAULT 0,
+      lifetime_spend DECIMAL(12,2) DEFAULT 0,
+      tier_qualify_date DATE,
+      tier_expiry_date DATE,
+      enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      enrolled_location_id INTEGER,
+      UNIQUE(customer_id, program_id)
+    )`);
+
+    // Loyalty Transactions
+    await pool.query(`CREATE TABLE IF NOT EXISTS loyalty_transactions (
+      id SERIAL PRIMARY KEY,
+      customer_loyalty_id INTEGER NOT NULL,
+      transaction_type VARCHAR(50) NOT NULL,
+      points INTEGER NOT NULL,
+      balance_after INTEGER NOT NULL,
+      sale_id INTEGER,
+      location_id INTEGER,
+      description TEXT,
+      processed_by_user_id INTEGER,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Promotions
+    await pool.query(`CREATE TABLE IF NOT EXISTS promotions (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      promotion_code VARCHAR(50),
+      promotion_name VARCHAR(255) NOT NULL,
+      promotion_type VARCHAR(50) NOT NULL,
+      description TEXT,
+      rules JSONB NOT NULL,
+      discount_value DECIMAL(10,2),
+      discount_percentage DECIMAL(5,2),
+      minimum_purchase DECIMAL(10,2),
+      maximum_discount DECIMAL(10,2),
+      usage_limit INTEGER,
+      usage_per_customer INTEGER,
+      current_usage_count INTEGER DEFAULT 0,
+      start_date TIMESTAMP NOT NULL,
+      end_date TIMESTAMP NOT NULL,
+      day_of_week INTEGER[],
+      start_time TIME,
+      end_time TIME,
+      location_ids INTEGER[],
+      customer_tier_ids INTEGER[],
+      requires_approval INTEGER DEFAULT 0,
+      approval_threshold DECIMAL(10,2),
+      is_stackable INTEGER DEFAULT 0,
+      priority INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      created_by_user_id INTEGER,
+      approved_by_user_id INTEGER,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(company_id, promotion_code)
+    )`);
+
+    // Promotion Usage
+    await pool.query(`CREATE TABLE IF NOT EXISTS promotion_usage (
+      id SERIAL PRIMARY KEY,
+      promotion_id INTEGER NOT NULL,
+      sale_id INTEGER NOT NULL,
+      customer_id INTEGER,
+      discount_applied DECIMAL(10,2) NOT NULL,
+      location_id INTEGER,
+      applied_by_user_id INTEGER,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Promotion Approvals
+    await pool.query(`CREATE TABLE IF NOT EXISTS promotion_approvals (
+      id SERIAL PRIMARY KEY,
+      promotion_id INTEGER NOT NULL,
+      sale_id INTEGER,
+      requested_by_user_id INTEGER NOT NULL,
+      requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      discount_amount DECIMAL(10,2) NOT NULL,
+      status VARCHAR(20) DEFAULT 'pending',
+      approved_by_user_id INTEGER,
+      approved_at TIMESTAMP,
+      rejection_reason TEXT
+    )`);
+
+    // Integration Configs
+    await pool.query(`CREATE TABLE IF NOT EXISTS integration_configs (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      integration_type VARCHAR(50) NOT NULL,
+      integration_name VARCHAR(100) NOT NULL,
+      endpoint_url VARCHAR(500),
+      api_key VARCHAR(255),
+      api_secret VARCHAR(255),
+      oauth_token TEXT,
+      oauth_refresh_token TEXT,
+      oauth_expires_at TIMESTAMP,
+      sync_settings JSONB,
+      mapping_config JSONB,
+      last_sync_at TIMESTAMP,
+      last_sync_status VARCHAR(50),
+      last_sync_error TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Integration Sync Log
+    await pool.query(`CREATE TABLE IF NOT EXISTS integration_sync_log (
+      id SERIAL PRIMARY KEY,
+      integration_config_id INTEGER NOT NULL,
+      sync_type VARCHAR(50) NOT NULL,
+      sync_direction VARCHAR(20) NOT NULL,
+      records_processed INTEGER,
+      records_succeeded INTEGER,
+      records_failed INTEGER,
+      started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      completed_at TIMESTAMP,
+      status VARCHAR(50),
+      error_details JSONB
+    )`);
+
+    // Webhooks
+    await pool.query(`CREATE TABLE IF NOT EXISTS webhooks (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      webhook_name VARCHAR(100) NOT NULL,
+      event_types TEXT[] NOT NULL,
+      endpoint_url VARCHAR(500) NOT NULL,
+      secret_key VARCHAR(255),
+      headers JSONB,
+      is_active INTEGER DEFAULT 1,
+      retry_count INTEGER DEFAULT 3,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Webhook Deliveries
+    await pool.query(`CREATE TABLE IF NOT EXISTS webhook_deliveries (
+      id SERIAL PRIMARY KEY,
+      webhook_id INTEGER NOT NULL,
+      event_type VARCHAR(100) NOT NULL,
+      payload JSONB NOT NULL,
+      response_status INTEGER,
+      response_body TEXT,
+      attempt_count INTEGER DEFAULT 1,
+      delivered_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    // Create default location for default company
+    await pool.query(`
+      INSERT INTO locations (company_id, location_code, location_name, location_type)
+      VALUES ($1, 'HQ-001', 'Head Office', 'hq')
+      ON CONFLICT (company_id, location_code) DO NOTHING
+    `, [defaultCompanyId]);
+
     // Create default barcode settings for default company
     await pool.query(`
       INSERT INTO barcode_settings (company_id, company_prefix, current_sequence, barcode_type)
@@ -537,6 +1263,31 @@ app.use('/api/vat', vatRoutes);
 app.use('/api/barcode', barcodeRoutes);
 app.use('/api/customers', customersRoutes);
 app.use('/api/reports', reportsRoutes);
+
+// Enterprise Routes
+const locationsRoutes = require('./routes/locations');
+const employeesRoutes = require('./routes/employees');
+const schedulingRoutes = require('./routes/scheduling');
+const inventoryRoutes = require('./routes/inventory');
+const transfersRoutes = require('./routes/transfers');
+const suppliersRoutes = require('./routes/suppliers');
+const purchaseOrdersRoutes = require('./routes/purchase-orders');
+const analyticsRoutes = require('./routes/analytics');
+const lossPreventionRoutes = require('./routes/loss-prevention');
+const loyaltyRoutes = require('./routes/loyalty');
+const promotionsRoutes = require('./routes/promotions');
+
+app.use('/api/locations', locationsRoutes);
+app.use('/api/employees', employeesRoutes);
+app.use('/api/scheduling', schedulingRoutes);
+app.use('/api/inventory', inventoryRoutes);
+app.use('/api/transfers', transfersRoutes);
+app.use('/api/suppliers', suppliersRoutes);
+app.use('/api/purchase-orders', purchaseOrdersRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/loss-prevention', lossPreventionRoutes);
+app.use('/api/loyalty', loyaltyRoutes);
+app.use('/api/promotions', promotionsRoutes);
 
 // Serve the main POS application
 app.get('/', (req, res) => {
