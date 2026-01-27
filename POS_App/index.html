@@ -1208,8 +1208,6 @@
                 <button class="nav-tab" onclick="showTab('reports', event)">Reports</button>
                 <button class="nav-tab" onclick="showTab('cashup', event)">Cash Up</button>
                 <button class="nav-tab enterprise-tab" onclick="showTab('dashboard', event)">Dashboard</button>
-                <button class="nav-tab enterprise-tab" onclick="showTab('inventory', event)">Inventory</button>
-                <button class="nav-tab enterprise-tab" onclick="showTab('employees', event)">Employees</button>
                 <button class="nav-tab enterprise-tab" onclick="showTab('loyalty', event)">Loyalty</button>
                 <button class="nav-tab" onclick="showTab('settings', event)">Settings</button>
             </div>
@@ -2288,229 +2286,6 @@
         </div>
     </div>
 
-    <!-- Inventory Layout -->
-    <div id="inventoryLayout" class="enterprise-layout">
-        <h1>Inventory Management</h1>
-        <div class="tab-sub-nav">
-            <button class="sub-tab active" onclick="showInventoryTab('stock-levels', event)">Stock Levels</button>
-            <button class="sub-tab" onclick="showInventoryTab('transfers', event)">Transfers</button>
-            <button class="sub-tab" onclick="showInventoryTab('purchase-orders', event)">Purchase Orders</button>
-            <button class="sub-tab" onclick="showInventoryTab('suppliers', event)">Suppliers</button>
-        </div>
-
-        <div id="invStockLevels">
-            <div class="enterprise-toolbar">
-                <div style="display:flex;gap:10px;">
-                    <input type="text" id="invSearchProduct" placeholder="Search products..." onkeyup="searchInventory()">
-                    <select id="invFilterLowStock" onchange="filterInventory()">
-                        <option value="">All Stock</option>
-                        <option value="low">Low Stock</option>
-                        <option value="out">Out of Stock</option>
-                    </select>
-                </div>
-                <button class="ent-btn ent-btn-primary" onclick="loadInventoryLevels()">Refresh</button>
-            </div>
-            <div class="enterprise-section">
-                <table class="enterprise-table">
-                    <thead>
-                        <tr>
-                            <th>Product</th>
-                            <th>Code</th>
-                            <th>Category</th>
-                            <th>On Hand</th>
-                            <th>Reserved</th>
-                            <th>In Transit</th>
-                            <th>Available</th>
-                            <th>Reorder Point</th>
-                        </tr>
-                    </thead>
-                    <tbody id="inventoryTableBody">
-                        <tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">Loading inventory...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div id="invTransfers" style="display:none;">
-            <div class="enterprise-toolbar">
-                <h3 style="margin:0;">Stock Transfers</h3>
-                <button class="ent-btn ent-btn-primary" onclick="showNewTransferModal()">+ New Transfer</button>
-            </div>
-            <div class="enterprise-section">
-                <table class="enterprise-table">
-                    <thead>
-                        <tr>
-                            <th>Transfer #</th>
-                            <th>From</th>
-                            <th>To</th>
-                            <th>Items</th>
-                            <th>Status</th>
-                            <th>Requested</th>
-                        </tr>
-                    </thead>
-                    <tbody id="transfersTableBody">
-                        <tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">Loading transfers...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div id="invPurchaseOrders" style="display:none;">
-            <div class="enterprise-toolbar">
-                <h3 style="margin:0;">Purchase Orders</h3>
-                <button class="ent-btn ent-btn-primary" onclick="showNewPOModal()">+ New PO</button>
-            </div>
-            <div class="enterprise-section">
-                <table class="enterprise-table">
-                    <thead>
-                        <tr>
-                            <th>PO #</th>
-                            <th>Supplier</th>
-                            <th>Delivery Location</th>
-                            <th>Total</th>
-                            <th>Status</th>
-                            <th>Expected</th>
-                        </tr>
-                    </thead>
-                    <tbody id="poTableBody">
-                        <tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">Loading purchase orders...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div id="invSuppliers" style="display:none;">
-            <div class="enterprise-toolbar">
-                <h3 style="margin:0;">Suppliers</h3>
-                <button class="ent-btn ent-btn-primary" onclick="showNewSupplierModal()">+ New Supplier</button>
-            </div>
-            <div class="enterprise-section">
-                <table class="enterprise-table">
-                    <thead>
-                        <tr>
-                            <th>Code</th>
-                            <th>Name</th>
-                            <th>Contact</th>
-                            <th>Email</th>
-                            <th>Payment Terms</th>
-                            <th>Preferred</th>
-                        </tr>
-                    </thead>
-                    <tbody id="suppliersTableBody">
-                        <tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">Loading suppliers...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Employees Layout -->
-    <div id="employeesLayout" class="enterprise-layout">
-        <h1>Employee Management</h1>
-        <div class="tab-sub-nav">
-            <button class="sub-tab active" onclick="showEmployeeTab('roster', event)">Roster</button>
-            <button class="sub-tab" onclick="showEmployeeTab('scheduling', event)">Scheduling</button>
-            <button class="sub-tab" onclick="showEmployeeTab('time-clock', event)">Time Clock</button>
-        </div>
-
-        <div id="empRoster">
-            <div class="enterprise-toolbar">
-                <div style="display:flex;gap:10px;">
-                    <input type="text" id="empSearch" placeholder="Search employees..." onkeyup="searchEmployees()">
-                    <select id="empFilterRole" onchange="filterEmployees()">
-                        <option value="">All Roles</option>
-                        <option value="store_manager">Store Manager</option>
-                        <option value="assistant_manager">Assistant Manager</option>
-                        <option value="shift_supervisor">Shift Supervisor</option>
-                        <option value="senior_cashier">Senior Cashier</option>
-                        <option value="cashier">Cashier</option>
-                        <option value="trainee">Trainee</option>
-                    </select>
-                    <select id="empFilterStatus" onchange="filterEmployees()">
-                        <option value="">All Statuses</option>
-                        <option value="active">Active</option>
-                        <option value="on_leave">On Leave</option>
-                        <option value="suspended">Suspended</option>
-                    </select>
-                </div>
-                <button class="ent-btn ent-btn-primary" onclick="showNewEmployeeModal()">+ Add Employee</button>
-            </div>
-            <div class="enterprise-section">
-                <table class="enterprise-table">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Employee ID</th>
-                            <th>Role</th>
-                            <th>Department</th>
-                            <th>Status</th>
-                            <th>Hire Date</th>
-                            <th>Last Login</th>
-                        </tr>
-                    </thead>
-                    <tbody id="employeesTableBody">
-                        <tr><td colspan="7" style="text-align:center;color:#999;padding:20px;">Loading employees...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div id="empScheduling" style="display:none;">
-            <div class="enterprise-toolbar">
-                <div style="display:flex;gap:10px;align-items:center;">
-                    <h3 style="margin:0;">Shift Schedule</h3>
-                    <input type="date" id="scheduleDate" onchange="loadSchedule()">
-                </div>
-                <button class="ent-btn ent-btn-primary" onclick="showNewShiftModal()">+ Add Shift</button>
-            </div>
-            <div class="enterprise-section">
-                <table class="enterprise-table">
-                    <thead>
-                        <tr>
-                            <th>Employee</th>
-                            <th>Date</th>
-                            <th>Start</th>
-                            <th>End</th>
-                            <th>Break</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="scheduleTableBody">
-                        <tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">Select a date to view schedule</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div id="empTimeClock" style="display:none;">
-            <div class="enterprise-section">
-                <h3>Your Clock Status</h3>
-                <div id="clockStatus" style="padding: 20px; text-align: center;">
-                    <p style="font-size: 18px; margin-bottom: 15px;" id="clockStatusText">Not clocked in</p>
-                    <button class="ent-btn ent-btn-success" id="clockInBtn" onclick="clockIn()" style="padding: 15px 30px; font-size: 16px;">Clock In</button>
-                    <button class="ent-btn ent-btn-danger" id="clockOutBtn" onclick="clockOut()" style="padding: 15px 30px; font-size: 16px; display: none;">Clock Out</button>
-                </div>
-            </div>
-            <div class="enterprise-section">
-                <h3>Today's Time Entries</h3>
-                <table class="enterprise-table">
-                    <thead>
-                        <tr>
-                            <th>Employee</th>
-                            <th>Clock In</th>
-                            <th>Clock Out</th>
-                            <th>Hours</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="timeEntriesBody">
-                        <tr><td colspan="5" style="text-align:center;color:#999;padding:20px;">Loading time entries...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
     <!-- Loyalty Layout -->
     <div id="loyaltyLayout" class="enterprise-layout">
         <h1>Customer Loyalty & Promotions</h1>
@@ -3530,8 +3305,6 @@
             document.getElementById('cashUpLayout').style.display = 'none';
             // Hide enterprise sections
             document.getElementById('dashboardLayout').style.display = 'none';
-            document.getElementById('inventoryLayout').style.display = 'none';
-            document.getElementById('employeesLayout').style.display = 'none';
             document.getElementById('loyaltyLayout').style.display = 'none';
 
             // Show appropriate section
@@ -3552,12 +3325,6 @@
             } else if (tab === 'dashboard') {
                 document.getElementById('dashboardLayout').style.display = 'block';
                 loadDashboard();
-            } else if (tab === 'inventory') {
-                document.getElementById('inventoryLayout').style.display = 'block';
-                loadInventoryLevels();
-            } else if (tab === 'employees') {
-                document.getElementById('employeesLayout').style.display = 'block';
-                loadEmployees();
             } else if (tab === 'loyalty') {
                 document.getElementById('loyaltyLayout').style.display = 'block';
                 loadLoyaltyPrograms();
@@ -5606,8 +5373,6 @@
                 document.getElementById('reportsLayout').style.display = 'none';
                 document.getElementById('cashUpLayout').style.display = 'none';
                 document.getElementById('dashboardLayout').style.display = 'none';
-                document.getElementById('inventoryLayout').style.display = 'none';
-                document.getElementById('employeesLayout').style.display = 'none';
                 document.getElementById('loyaltyLayout').style.display = 'none';
                 stockInterface.style.display = 'block';
 
