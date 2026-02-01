@@ -58,10 +58,22 @@ async function initDatabase() {
       contact_email VARCHAR(255),
       contact_phone VARCHAR(50),
       address TEXT,
+      owner_user_id INTEGER,
+      subscription_status VARCHAR(50) DEFAULT 'pending',
+      subscription_expires_at TIMESTAMP,
+      approved_at TIMESTAMP,
+      approved_by_user_id INTEGER,
       is_active INTEGER DEFAULT 1,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`);
+
+    // Add new columns to companies if they don't exist
+    await pool.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS owner_user_id INTEGER`);
+    await pool.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS subscription_status VARCHAR(50) DEFAULT 'pending'`);
+    await pool.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMP`);
+    await pool.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP`);
+    await pool.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS approved_by_user_id INTEGER`);
 
     // Accounting Firms table
     await pool.query(`CREATE TABLE IF NOT EXISTS accounting_firms (
@@ -93,6 +105,7 @@ async function initDatabase() {
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255)`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS user_type VARCHAR(50) DEFAULT 'company_user'`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS accounting_firm_id INTEGER`);
+    await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_super_admin INTEGER DEFAULT 0`);
 
     // Firm-Company Access (links accounting firms to companies they manage)
     await pool.query(`CREATE TABLE IF NOT EXISTS firm_company_access (
@@ -112,11 +125,15 @@ async function initDatabase() {
       company_id INTEGER NOT NULL,
       role VARCHAR(50) NOT NULL,
       is_primary INTEGER DEFAULT 0,
+      float_override DECIMAL(10,2),
       granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       granted_by_user_id INTEGER,
       is_active INTEGER DEFAULT 1,
       UNIQUE(user_id, company_id)
     )`);
+
+    // Add float_override to user_company_access if not exists
+    await pool.query(`ALTER TABLE user_company_access ADD COLUMN IF NOT EXISTS float_override DECIMAL(10,2)`);
 
     // Invitations table (for email invites)
     await pool.query(`CREATE TABLE IF NOT EXISTS invitations (
@@ -306,6 +323,20 @@ async function initDatabase() {
       VALUES ($1, $2, $3, $4)
       ON CONFLICT DO NOTHING
     `, [defaultCompanyId, 'Main Till', 'TILL-001', 'Front Counter']);
+
+    // ========== SUPER ADMIN USER ==========
+    // Create super admin user (Lorenco - platform owner)
+    const superAdminHash = bcrypt.hashSync('Lorenco@190409', 10);
+    await pool.query(`
+      INSERT INTO users (username, email, password_hash, full_name, role, user_type, is_super_admin)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ON CONFLICT (username) DO UPDATE SET is_super_admin = 1
+    `, ['lorenco_admin', 'antonjvr@lorenco.co.za', superAdminHash, 'Anton (Lorenco)', 'super_admin', 'super_admin', 1]);
+
+    // Update default company to active subscription
+    await pool.query(`
+      UPDATE companies SET subscription_status = 'active' WHERE id = $1
+    `, [defaultCompanyId]);
 
     // ========== BARCODE TABLES ==========
 

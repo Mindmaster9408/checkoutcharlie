@@ -20,6 +20,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this';
 /**
  * POST /api/auth/login
  * Initial login - returns token and list of accessible companies
+ * Super admins get access to admin portal instead
  */
 router.post('/login', (req, res) => {
   const { username, password } = req.body;
@@ -28,7 +29,8 @@ router.post('/login', (req, res) => {
     return res.status(400).json({ error: 'Username and password are required' });
   }
 
-  db.get('SELECT * FROM users WHERE username = ? AND is_active = 1', [username], async (err, user) => {
+  // Allow login with username OR email
+  db.get('SELECT * FROM users WHERE (username = ? OR email = ?) AND is_active = 1', [username, username], async (err, user) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
@@ -41,6 +43,28 @@ router.post('/login', (req, res) => {
 
     if (!validPassword) {
       return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Check if super admin - give access to admin portal
+    if (user.is_super_admin === 1) {
+      const token = jwt.sign({
+        userId: user.id,
+        username: user.username,
+        fullName: user.full_name,
+        isSuperAdmin: true
+      }, JWT_SECRET, { expiresIn: '24h' });
+
+      return res.json({
+        success: true,
+        isSuperAdmin: true,
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          fullName: user.full_name,
+          email: user.email
+        }
+      });
     }
 
     // Get user's accessible companies
@@ -183,7 +207,7 @@ router.post('/select-company', authenticateToken, (req, res) => {
     verifyParams = [companyId, firmId];
   } else {
     verifyQuery = `
-      SELECT c.*, uca.role
+      SELECT c.*, uca.role, uca.float_override
       FROM companies c
       JOIN user_company_access uca ON c.id = uca.company_id
       WHERE c.id = ? AND uca.user_id = ? AND uca.is_active = 1 AND c.is_active = 1
@@ -198,6 +222,23 @@ router.post('/select-company', authenticateToken, (req, res) => {
 
     if (!company) {
       return res.status(403).json({ error: 'Access denied to this company' });
+    }
+
+    // Check subscription status - reject if suspended or pending
+    if (company.subscription_status === 'suspended') {
+      return res.status(403).json({
+        error: 'Company subscription suspended',
+        message: 'Please contact support to reactivate your subscription.',
+        subscriptionStatus: 'suspended'
+      });
+    }
+
+    if (company.subscription_status === 'pending') {
+      return res.status(403).json({
+        error: 'Company pending approval',
+        message: 'Your company registration is pending approval. Please wait for activation.',
+        subscriptionStatus: 'pending'
+      });
     }
 
     // Get user details for the new token
@@ -846,6 +887,216 @@ router.delete('/companies/:companyId/users/:userId', authenticateToken, (req, re
       if (err) return res.status(500).json({ error: 'Database error' });
       if (this.changes === 0) return res.status(404).json({ error: 'User not found in this company' });
       res.json({ message: 'User removed from company' });
+    }
+  );
+});
+
+// ========== PUBLIC REGISTRATION ==========
+
+/**
+ * POST /api/auth/register-company
+ * Register a new company (public signup)
+ */
+router.post('/register-company', async (req, res) => {
+  const {
+    // User details
+    full_name, username, email, password,
+    // Company details
+    company_name, trading_name, registration_number, vat_number,
+    contact_email, contact_phone, address
+  } = req.body;
+
+  // Validate required fields
+  if (!full_name || !username || !email || !password) {
+    return res.status(400).json({ error: 'Full name, username, email, and password are required' });
+  }
+  if (!company_name) {
+    return res.status(400).json({ error: 'Company name is required' });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  }
+
+  // Check if username or email already exists
+  db.get('SELECT id FROM users WHERE username = ? OR email = ?', [username, email], async (err, existing) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (existing) return res.status(409).json({ error: 'Username or email already registered' });
+
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Create user first
+    db.run(
+      `INSERT INTO users (username, email, password_hash, full_name, role, user_type)
+       VALUES (?, ?, ?, ?, 'business_owner', 'business_owner')`,
+      [username, email, passwordHash, full_name],
+      function(err2) {
+        if (err2) return res.status(500).json({ error: 'Failed to create user', details: err2.message });
+
+        const newUserId = this.lastID;
+
+        // Create company with pending status
+        db.run(
+          `INSERT INTO companies (company_name, trading_name, registration_number, vat_number,
+            contact_email, contact_phone, address, owner_user_id, subscription_status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+          [company_name, trading_name || null, registration_number || null, vat_number || null,
+           contact_email || email, contact_phone || null, address || null, newUserId],
+          function(err3) {
+            if (err3) return res.status(500).json({ error: 'Failed to create company' });
+
+            const newCompanyId = this.lastID;
+
+            // Link user to company as business_owner
+            db.run(
+              `INSERT INTO user_company_access (user_id, company_id, role, is_primary, granted_by_user_id)
+               VALUES (?, ?, 'business_owner', 1, ?)`,
+              [newUserId, newCompanyId, newUserId],
+              function(err4) {
+                if (err4) console.error('Failed to link user to company:', err4);
+
+                // Create default location
+                db.run(
+                  `INSERT INTO locations (company_id, location_code, location_name, location_type)
+                   VALUES (?, 'STORE-001', 'Main Store', 'store')`,
+                  [newCompanyId],
+                  (err5) => { if (err5) console.error('Failed to create location:', err5); }
+                );
+
+                // Create default company settings
+                db.run(
+                  `INSERT INTO company_settings (company_id, till_float_amount) VALUES (?, 500.00)`,
+                  [newCompanyId],
+                  (err6) => { if (err6) console.error('Failed to create settings:', err6); }
+                );
+
+                res.status(201).json({
+                  success: true,
+                  message: 'Registration successful! Your account is pending approval. You will be notified once activated.',
+                  user: { id: newUserId, username, email, full_name },
+                  company: { id: newCompanyId, company_name, status: 'pending' }
+                });
+              }
+            );
+          }
+        );
+      }
+    );
+  });
+});
+
+// ========== SUPER ADMIN ROUTES ==========
+
+/**
+ * Middleware to verify super admin
+ */
+function requireSuperAdmin(req, res, next) {
+  if (!req.user || !req.user.isSuperAdmin) {
+    return res.status(403).json({ error: 'Super admin access required' });
+  }
+  next();
+}
+
+/**
+ * GET /api/auth/admin/companies
+ * Get all companies (super admin only)
+ */
+router.get('/admin/companies', authenticateToken, requireSuperAdmin, (req, res) => {
+  db.all(
+    `SELECT c.*,
+       u.full_name as owner_name, u.email as owner_email,
+       (SELECT COUNT(*) FROM user_company_access uca WHERE uca.company_id = c.id AND uca.is_active = 1) as user_count,
+       (SELECT COUNT(*) FROM sales s WHERE s.company_id = c.id) as total_sales
+     FROM companies c
+     LEFT JOIN users u ON c.owner_user_id = u.id
+     ORDER BY c.created_at DESC`,
+    [],
+    (err, companies) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      res.json({ companies: companies || [] });
+    }
+  );
+});
+
+/**
+ * GET /api/auth/admin/companies/:id
+ * Get single company details (super admin only)
+ */
+router.get('/admin/companies/:id', authenticateToken, requireSuperAdmin, (req, res) => {
+  db.get(
+    `SELECT c.*,
+       u.full_name as owner_name, u.email as owner_email, u.username as owner_username
+     FROM companies c
+     LEFT JOIN users u ON c.owner_user_id = u.id
+     WHERE c.id = ?`,
+    [req.params.id],
+    (err, company) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (!company) return res.status(404).json({ error: 'Company not found' });
+
+      // Get users for this company
+      db.all(
+        `SELECT u.id, u.username, u.email, u.full_name, uca.role
+         FROM user_company_access uca
+         JOIN users u ON uca.user_id = u.id
+         WHERE uca.company_id = ? AND uca.is_active = 1`,
+        [req.params.id],
+        (err2, users) => {
+          if (err2) return res.status(500).json({ error: 'Database error' });
+          res.json({ company, users: users || [] });
+        }
+      );
+    }
+  );
+});
+
+/**
+ * PUT /api/auth/admin/companies/:id/status
+ * Activate or suspend a company (super admin only)
+ */
+router.put('/admin/companies/:id/status', authenticateToken, requireSuperAdmin, (req, res) => {
+  const { status } = req.body;
+
+  if (!['active', 'suspended', 'pending', 'trial'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status. Must be: active, suspended, pending, or trial' });
+  }
+
+  const approvedAt = status === 'active' ? 'CURRENT_TIMESTAMP' : null;
+  const approvedBy = status === 'active' ? req.user.userId : null;
+
+  db.run(
+    `UPDATE companies SET
+      subscription_status = ?,
+      approved_at = ${status === 'active' ? 'CURRENT_TIMESTAMP' : 'approved_at'},
+      approved_by_user_id = COALESCE(?, approved_by_user_id),
+      updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+    [status, approvedBy, req.params.id],
+    function(err) {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (this.changes === 0) return res.status(404).json({ error: 'Company not found' });
+      res.json({ message: `Company ${status === 'active' ? 'activated' : status}`, status });
+    }
+  );
+});
+
+/**
+ * GET /api/auth/admin/stats
+ * Get platform statistics (super admin only)
+ */
+router.get('/admin/stats', authenticateToken, requireSuperAdmin, (req, res) => {
+  db.get(
+    `SELECT
+       (SELECT COUNT(*) FROM companies) as total_companies,
+       (SELECT COUNT(*) FROM companies WHERE subscription_status = 'active') as active_companies,
+       (SELECT COUNT(*) FROM companies WHERE subscription_status = 'pending') as pending_companies,
+       (SELECT COUNT(*) FROM companies WHERE subscription_status = 'suspended') as suspended_companies,
+       (SELECT COUNT(*) FROM users WHERE is_super_admin = 0) as total_users,
+       (SELECT COUNT(*) FROM sales) as total_sales`,
+    [],
+    (err, stats) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      res.json({ stats: stats || {} });
     }
   );
 });

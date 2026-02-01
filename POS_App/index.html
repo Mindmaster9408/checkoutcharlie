@@ -1183,10 +1183,10 @@
 
     <!-- Login Screen -->
     <div id="loginScreen" class="login-screen">
-        <div class="login-box">
+        <div class="login-box" id="loginBox">
             <h1>🛒 Checkout Charlie</h1>
             <div class="form-group">
-                <label>Username</label>
+                <label>Username or Email</label>
                 <input type="text" id="loginUsername" value="demo" autofocus>
             </div>
             <div class="form-group">
@@ -1194,6 +1194,142 @@
                 <input type="password" id="loginPassword" value="demo123">
             </div>
             <button class="btn btn-primary" style="width: 100%;" onclick="login()">Login</button>
+            <div style="text-align: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+                <span style="color: #666;">Don't have an account?</span>
+                <button onclick="showRegisterForm()" style="background: none; border: none; color: #667eea; cursor: pointer; font-weight: 600; text-decoration: underline;">Register your company</button>
+            </div>
+        </div>
+
+        <!-- Registration Form -->
+        <div class="login-box" id="registerBox" style="display: none; max-width: 500px;">
+            <h1 style="font-size: 22px;">📝 Register Your Company</h1>
+            <p style="color: #666; margin-bottom: 20px; font-size: 13px;">Fill in your details below. Your account will be reviewed and activated.</p>
+
+            <div style="background: #f5f7fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                <h3 style="margin: 0 0 10px; font-size: 14px; color: #667eea;">Your Details</h3>
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label style="font-size: 12px;">Full Name *</label>
+                    <input type="text" id="regFullName" placeholder="e.g. John Smith">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label style="font-size: 12px;">Username *</label>
+                        <input type="text" id="regUsername" placeholder="e.g. jsmith">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label style="font-size: 12px;">Email *</label>
+                        <input type="email" id="regEmail" placeholder="you@example.com">
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label style="font-size: 12px;">Password * (min 6 characters)</label>
+                    <input type="password" id="regPassword" placeholder="Create a secure password">
+                </div>
+            </div>
+
+            <div style="background: #f5f7fa; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                <h3 style="margin: 0 0 10px; font-size: 14px; color: #667eea;">Company Details</h3>
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label style="font-size: 12px;">Company Name *</label>
+                    <input type="text" id="regCompanyName" placeholder="e.g. ABC Trading Pty Ltd">
+                </div>
+                <div class="form-group" style="margin-bottom: 10px;">
+                    <label style="font-size: 12px;">Trading Name</label>
+                    <input type="text" id="regTradingName" placeholder="e.g. ABC Store">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label style="font-size: 12px;">Registration Number</label>
+                        <input type="text" id="regRegNumber" placeholder="Company reg #">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label style="font-size: 12px;">VAT Number</label>
+                        <input type="text" id="regVatNumber" placeholder="VAT number">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label style="font-size: 12px;">Contact Email</label>
+                        <input type="email" id="regContactEmail" placeholder="Company email">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 10px;">
+                        <label style="font-size: 12px;">Contact Phone</label>
+                        <input type="text" id="regContactPhone" placeholder="Phone number">
+                    </div>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label style="font-size: 12px;">Address</label>
+                    <textarea id="regAddress" rows="2" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;" placeholder="Business address"></textarea>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" style="width: 100%;" onclick="registerCompany()">Register Company</button>
+            <div style="text-align: center; margin-top: 15px;">
+                <button onclick="showLoginForm()" style="background: none; border: none; color: #667eea; cursor: pointer;">← Back to Login</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Super Admin Portal -->
+    <div id="superAdminPortal" style="display: none; min-height: 100vh; background: #1a1a2e;">
+        <div style="background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="color: white;">
+                <span style="font-size: 20px; font-weight: bold;">🔐 Lorenco Admin Portal</span>
+                <span style="margin-left: 15px; opacity: 0.7; font-size: 13px;">Platform Management</span>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <span style="color: #4ade80; font-size: 13px;" id="adminUserName"></span>
+                <button onclick="logoutAdmin()" style="background: #ef4444; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer;">Logout</button>
+            </div>
+        </div>
+
+        <div style="padding: 20px; max-width: 1400px; margin: 0 auto;">
+            <!-- Stats Cards -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px;">
+                <div style="background: linear-gradient(135deg, #667eea, #764ba2); padding: 20px; border-radius: 12px; color: white;">
+                    <div style="font-size: 12px; opacity: 0.8; text-transform: uppercase;">Total Companies</div>
+                    <div style="font-size: 32px; font-weight: bold;" id="statTotalCompanies">0</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #4ade80, #22c55e); padding: 20px; border-radius: 12px; color: white;">
+                    <div style="font-size: 12px; opacity: 0.8; text-transform: uppercase;">Active</div>
+                    <div style="font-size: 32px; font-weight: bold;" id="statActiveCompanies">0</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #fbbf24, #f59e0b); padding: 20px; border-radius: 12px; color: white;">
+                    <div style="font-size: 12px; opacity: 0.8; text-transform: uppercase;">Pending Approval</div>
+                    <div style="font-size: 32px; font-weight: bold;" id="statPendingCompanies">0</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #ef4444, #dc2626); padding: 20px; border-radius: 12px; color: white;">
+                    <div style="font-size: 12px; opacity: 0.8; text-transform: uppercase;">Suspended</div>
+                    <div style="font-size: 32px; font-weight: bold;" id="statSuspendedCompanies">0</div>
+                </div>
+            </div>
+
+            <!-- Companies Table -->
+            <div style="background: #0f3460; border-radius: 12px; overflow: hidden;">
+                <div style="padding: 15px 20px; border-bottom: 1px solid #1a1a2e; display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="margin: 0; color: white; font-size: 18px;">All Companies</h2>
+                    <button onclick="loadAdminCompanies()" style="background: #667eea; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer;">↻ Refresh</button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; color: white;">
+                        <thead>
+                            <tr style="background: #16213e;">
+                                <th style="padding: 12px 15px; text-align: left; font-size: 12px; text-transform: uppercase; color: #94a3b8;">Company</th>
+                                <th style="padding: 12px 15px; text-align: left; font-size: 12px; text-transform: uppercase; color: #94a3b8;">Owner</th>
+                                <th style="padding: 12px 15px; text-align: left; font-size: 12px; text-transform: uppercase; color: #94a3b8;">Email</th>
+                                <th style="padding: 12px 15px; text-align: left; font-size: 12px; text-transform: uppercase; color: #94a3b8;">Users</th>
+                                <th style="padding: 12px 15px; text-align: left; font-size: 12px; text-transform: uppercase; color: #94a3b8;">Sales</th>
+                                <th style="padding: 12px 15px; text-align: left; font-size: 12px; text-transform: uppercase; color: #94a3b8;">Status</th>
+                                <th style="padding: 12px 15px; text-align: left; font-size: 12px; text-transform: uppercase; color: #94a3b8;">Registered</th>
+                                <th style="padding: 12px 15px; text-align: left; font-size: 12px; text-transform: uppercase; color: #94a3b8;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminCompaniesTable">
+                            <tr><td colspan="8" style="padding: 40px; text-align: center; color: #94a3b8;">Loading companies...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1216,6 +1352,7 @@
                     <span id="userName"></span>
                 </div>
                 <span class="session-badge" id="sessionStatus">No Session</span>
+                <button class="manage-till-btn" onclick="showSwitchStoreModal()">Switch Store</button>
                 <button class="manage-till-btn" onclick="manageSession()">Manage Till</button>
                 <button class="manage-till-btn" onclick="logout()" style="background: rgba(220,53,69,0.2); border-color: #dc3545;">Logout</button>
             </div>
@@ -2412,6 +2549,16 @@
                 const result = await response.json();
 
                 if (response.ok) {
+                    // Check if super admin - redirect to admin portal
+                    if (result.isSuperAdmin) {
+                        token = result.token;
+                        localStorage.setItem('token', token);
+                        localStorage.setItem('isSuperAdmin', 'true');
+                        currentUser = result.user;
+                        showSuperAdminPortal();
+                        return;
+                    }
+
                     // Check if we need to select a company
                     if (result.requiresCompanySelection && result.companies && result.companies.length > 1) {
                         // Store temporary token for company selection
@@ -2496,11 +2643,20 @@
                     localStorage.setItem('token', token);
                     userRole = result.role;
                     userPermissions = result.permissions || {};
+                    currentCompanyId = result.company.id;
+                    currentCompanyName = result.company.company_name;
 
                     document.getElementById('companySelectorScreen').style.display = 'none';
                     completeLogin();
                 } else {
-                    alert(result.error || 'Failed to select company');
+                    // Handle subscription errors
+                    if (result.subscriptionStatus === 'suspended') {
+                        alert('Company Suspended\\n\\nYour company subscription has been suspended. Please contact support to reactivate.');
+                    } else if (result.subscriptionStatus === 'pending') {
+                        alert('Pending Approval\\n\\nYour company registration is still pending approval. Please wait for activation.');
+                    } else {
+                        alert(result.error || 'Failed to select company');
+                    }
                 }
             } catch (error) {
                 alert('Error selecting company: ' + error.message);
@@ -6104,6 +6260,293 @@
                 showNotification('Failed to remove user', 'error');
             }
         }
+
+        // ========== REGISTRATION & SUPER ADMIN ==========
+
+        function showRegisterForm() {
+            document.getElementById('loginBox').style.display = 'none';
+            document.getElementById('registerBox').style.display = 'block';
+        }
+
+        function showLoginForm() {
+            document.getElementById('registerBox').style.display = 'none';
+            document.getElementById('loginBox').style.display = 'block';
+        }
+
+        async function registerCompany() {
+            const data = {
+                full_name: document.getElementById('regFullName').value.trim(),
+                username: document.getElementById('regUsername').value.trim(),
+                email: document.getElementById('regEmail').value.trim(),
+                password: document.getElementById('regPassword').value,
+                company_name: document.getElementById('regCompanyName').value.trim(),
+                trading_name: document.getElementById('regTradingName').value.trim(),
+                registration_number: document.getElementById('regRegNumber').value.trim(),
+                vat_number: document.getElementById('regVatNumber').value.trim(),
+                contact_email: document.getElementById('regContactEmail').value.trim(),
+                contact_phone: document.getElementById('regContactPhone').value.trim(),
+                address: document.getElementById('regAddress').value.trim()
+            };
+
+            if (!data.full_name || !data.username || !data.email || !data.password) {
+                showNotification('Please fill in all required personal details', 'error');
+                return;
+            }
+            if (!data.company_name) {
+                showNotification('Company name is required', 'error');
+                return;
+            }
+            if (data.password.length < 6) {
+                showNotification('Password must be at least 6 characters', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/auth/register-company`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+
+                if (res.ok) {
+                    alert('Registration successful!\\n\\nYour company account is now pending approval. You will be able to log in once an administrator activates your account.\\n\\nThank you for registering with Checkout Charlie!');
+                    showLoginForm();
+                    // Clear form
+                    document.getElementById('regFullName').value = '';
+                    document.getElementById('regUsername').value = '';
+                    document.getElementById('regEmail').value = '';
+                    document.getElementById('regPassword').value = '';
+                    document.getElementById('regCompanyName').value = '';
+                    document.getElementById('regTradingName').value = '';
+                    document.getElementById('regRegNumber').value = '';
+                    document.getElementById('regVatNumber').value = '';
+                    document.getElementById('regContactEmail').value = '';
+                    document.getElementById('regContactPhone').value = '';
+                    document.getElementById('regAddress').value = '';
+                } else {
+                    showNotification(result.error || 'Registration failed', 'error');
+                }
+            } catch (e) {
+                showNotification('Registration failed. Please try again.', 'error');
+            }
+        }
+
+        // Super Admin Portal
+        function showSuperAdminPortal() {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'none';
+            document.getElementById('companySelectorScreen').style.display = 'none';
+            document.getElementById('superAdminPortal').style.display = 'block';
+            document.getElementById('adminUserName').textContent = currentUser ? currentUser.fullName : 'Admin';
+            loadAdminStats();
+            loadAdminCompanies();
+        }
+
+        async function loadAdminStats() {
+            try {
+                const res = await fetch(`${API_URL}/auth/admin/stats`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const s = data.stats || {};
+                    document.getElementById('statTotalCompanies').textContent = s.total_companies || 0;
+                    document.getElementById('statActiveCompanies').textContent = s.active_companies || 0;
+                    document.getElementById('statPendingCompanies').textContent = s.pending_companies || 0;
+                    document.getElementById('statSuspendedCompanies').textContent = s.suspended_companies || 0;
+                }
+            } catch (e) {
+                console.log('Stats load error:', e);
+            }
+        }
+
+        async function loadAdminCompanies() {
+            try {
+                const res = await fetch(`${API_URL}/auth/admin/companies`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const companies = data.companies || [];
+                    const tbody = document.getElementById('adminCompaniesTable');
+
+                    if (companies.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="8" style="padding: 40px; text-align: center; color: #94a3b8;">No companies registered yet</td></tr>';
+                        return;
+                    }
+
+                    tbody.innerHTML = companies.map(c => {
+                        const statusColors = {
+                            'active': 'background: #22c55e; color: white;',
+                            'pending': 'background: #fbbf24; color: #1a1a2e;',
+                            'suspended': 'background: #ef4444; color: white;',
+                            'trial': 'background: #3b82f6; color: white;'
+                        };
+                        const statusStyle = statusColors[c.subscription_status] || statusColors['pending'];
+
+                        return `<tr style="border-bottom: 1px solid #1a1a2e;">
+                            <td style="padding: 12px 15px;">
+                                <div style="font-weight: 600;">${c.company_name}</div>
+                                ${c.trading_name ? `<div style="font-size: 12px; color: #94a3b8;">${c.trading_name}</div>` : ''}
+                            </td>
+                            <td style="padding: 12px 15px;">${c.owner_name || '-'}</td>
+                            <td style="padding: 12px 15px; font-size: 13px;">${c.contact_email || c.owner_email || '-'}</td>
+                            <td style="padding: 12px 15px;">${c.user_count || 0}</td>
+                            <td style="padding: 12px 15px;">${c.total_sales || 0}</td>
+                            <td style="padding: 12px 15px;">
+                                <span style="padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; ${statusStyle}">${(c.subscription_status || 'pending').toUpperCase()}</span>
+                            </td>
+                            <td style="padding: 12px 15px; font-size: 12px; color: #94a3b8;">${c.created_at ? new Date(c.created_at).toLocaleDateString() : '-'}</td>
+                            <td style="padding: 12px 15px;">
+                                ${c.subscription_status === 'active' ?
+                                    `<button onclick="updateCompanyStatus(${c.id}, 'suspended')" style="background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Suspend</button>` :
+                                    `<button onclick="updateCompanyStatus(${c.id}, 'active')" style="background: #22c55e; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Activate</button>`
+                                }
+                            </td>
+                        </tr>`;
+                    }).join('');
+                }
+            } catch (e) {
+                console.log('Companies load error:', e);
+            }
+        }
+
+        async function updateCompanyStatus(companyId, status) {
+            const action = status === 'active' ? 'activate' : 'suspend';
+            if (!confirm(`Are you sure you want to ${action} this company?`)) return;
+
+            try {
+                const res = await fetch(`${API_URL}/auth/admin/companies/${companyId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status })
+                });
+                if (res.ok) {
+                    showNotification(`Company ${status === 'active' ? 'activated' : 'suspended'} successfully`, 'success');
+                    loadAdminStats();
+                    loadAdminCompanies();
+                } else {
+                    const err = await res.json();
+                    showNotification(err.error || 'Failed to update company', 'error');
+                }
+            } catch (e) {
+                showNotification('Failed to update company status', 'error');
+            }
+        }
+
+        function logoutAdmin() {
+            token = null;
+            currentUser = null;
+            localStorage.removeItem('token');
+            localStorage.removeItem('isSuperAdmin');
+            document.getElementById('superAdminPortal').style.display = 'none';
+            document.getElementById('loginScreen').style.display = 'flex';
+            showLoginForm();
+        }
+
+        // ========== SWITCH STORE (Multi-company) ==========
+
+        async function showSwitchStoreModal() {
+            // Load user's accessible companies
+            try {
+                const res = await fetch(`${API_URL}/auth/companies`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const companies = data.companies || [];
+
+                    if (companies.length <= 1) {
+                        showNotification('You only have access to one company', 'info');
+                        return;
+                    }
+
+                    // Create and show modal
+                    let modal = document.getElementById('switchStoreModal');
+                    if (!modal) {
+                        modal = document.createElement('div');
+                        modal.id = 'switchStoreModal';
+                        modal.className = 'modal-overlay';
+                        modal.innerHTML = `
+                            <div class="modal" style="max-width: 450px;">
+                                <div class="modal-header">
+                                    <h2>Switch Store / Company</h2>
+                                    <button class="close-btn" onclick="closeSwitchStoreModal()">&times;</button>
+                                </div>
+                                <div class="modal-body" style="padding: 20px;" id="switchStoreList"></div>
+                            </div>
+                        `;
+                        document.body.appendChild(modal);
+                    }
+
+                    const listDiv = document.getElementById('switchStoreList');
+                    listDiv.innerHTML = companies.map(c => `
+                        <div onclick="switchToCompany(${c.id})" style="padding: 15px; border: 2px solid ${c.id === currentCompanyId ? '#667eea' : '#e0e0e0'}; border-radius: 8px; margin-bottom: 10px; cursor: pointer; background: ${c.id === currentCompanyId ? '#f5f7ff' : 'white'};">
+                            <div style="font-weight: 600; color: #333;">${c.company_name}</div>
+                            ${c.trading_name ? `<div style="font-size: 13px; color: #666;">${c.trading_name}</div>` : ''}
+                            <div style="font-size: 12px; color: #999; margin-top: 5px;">Role: ${(c.role || 'user').replace(/_/g, ' ')}</div>
+                            ${c.id === currentCompanyId ? '<div style="color: #667eea; font-size: 12px; margin-top: 5px;">✓ Currently selected</div>' : ''}
+                        </div>
+                    `).join('');
+
+                    modal.style.display = 'flex';
+                }
+            } catch (e) {
+                showNotification('Failed to load companies', 'error');
+            }
+        }
+
+        function closeSwitchStoreModal() {
+            const modal = document.getElementById('switchStoreModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        async function switchToCompany(companyId) {
+            if (companyId === currentCompanyId) {
+                closeSwitchStoreModal();
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/auth/select-company`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ companyId })
+                });
+
+                const result = await res.json();
+
+                if (res.ok) {
+                    token = result.token;
+                    localStorage.setItem('token', token);
+                    currentCompanyId = result.company.id;
+                    currentCompanyName = result.company.company_name;
+                    userRole = result.role;
+                    userPermissions = result.permissions || {};
+
+                    closeSwitchStoreModal();
+                    showNotification(`Switched to ${currentCompanyName}`, 'success');
+
+                    // Reload data for new company
+                    loadProducts();
+                    updateSessionDisplay();
+                } else {
+                    showNotification(result.error || result.message || 'Failed to switch company', 'error');
+                }
+            } catch (e) {
+                showNotification('Failed to switch company', 'error');
+            }
+        }
+
+        let currentCompanyId = null;
+        let currentCompanyName = null;
     </script>
 </body>
 </html>
