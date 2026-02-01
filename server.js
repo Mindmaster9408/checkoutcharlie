@@ -1307,6 +1307,7 @@ const analyticsRoutes = require('./routes/analytics');
 const lossPreventionRoutes = require('./routes/loss-prevention');
 const loyaltyRoutes = require('./routes/loyalty');
 const promotionsRoutes = require('./routes/promotions');
+const receiptsRoutes = require('./routes/receipts');
 
 app.use('/api/locations', locationsRoutes);
 app.use('/api/employees', employeesRoutes);
@@ -1319,6 +1320,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/loss-prevention', lossPreventionRoutes);
 app.use('/api/loyalty', loyaltyRoutes);
 app.use('/api/promotions', promotionsRoutes);
+app.use('/api/receipts', receiptsRoutes);
 
 // Serve the main POS application
 app.get('/', (req, res) => {

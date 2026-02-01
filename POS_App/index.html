@@ -1997,6 +1997,75 @@
                             </table>
                         </div>
                     </div>
+
+                    <!-- Receipt Printers Section -->
+                    <div id="receipt-printersSection" style="display: none;">
+                        <div class="products-header">
+                            <h3 style="margin:0;">Receipt Printers</h3>
+                            <div class="header-actions">
+                                <button class="btn btn-primary" onclick="showAddPrinterModal()">+ Add Printer</button>
+                            </div>
+                        </div>
+                        <p style="color: #666; margin: 10px 0 20px; font-size: 13px;">Configure network thermal printers for receipt printing. Most POS thermal printers use port 9100.</p>
+
+                        <!-- Receipt Settings -->
+                        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                            <h4 style="margin: 0 0 15px 0;">Receipt Settings</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Receipt Header</label>
+                                    <textarea id="receiptHeader" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" placeholder="Your company name or message"></textarea>
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Receipt Footer</label>
+                                    <textarea id="receiptFooter" rows="3" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" placeholder="Thank you message, return policy, etc."></textarea>
+                                </div>
+                            </div>
+                            <div style="margin-top: 15px;">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" id="autoPrintReceipt">
+                                    Auto-print receipt after each sale
+                                </label>
+                            </div>
+                            <button class="btn btn-primary" onclick="saveReceiptSettings()" style="margin-top: 15px;">Save Settings</button>
+                        </div>
+
+                        <!-- Printers Table -->
+                        <div class="products-container">
+                            <table class="products-table">
+                                <thead>
+                                    <tr>
+                                        <th>Printer Name</th>
+                                        <th>IP Address</th>
+                                        <th>Port</th>
+                                        <th>Paper Width</th>
+                                        <th>Default</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="printersTableBody">
+                                    <tr><td colspan="7" style="text-align:center;color:#999;padding:20px;">Loading printers...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- General Section -->
+                    <div id="generalSection" style="display: none;">
+                        <div class="products-header">
+                            <h3 style="margin:0;">General Settings</h3>
+                        </div>
+                        <p style="color: #666; margin: 10px 0 20px; font-size: 13px;">Company-wide settings and defaults.</p>
+                        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+                            <h4 style="margin: 0 0 15px 0;">Float Amount</h4>
+                            <div class="form-group">
+                                <label>Default Opening Float (R)</label>
+                                <input type="number" id="defaultFloatAmount" step="0.01" min="0" value="500.00" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; width: 200px;">
+                            </div>
+                            <button class="btn btn-primary" onclick="saveGeneralSettings()">Save Settings</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2357,6 +2426,55 @@
             <div class="modal-footer" style="padding:15px 20px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:10px;">
                 <button class="btn btn-secondary" onclick="closeUserModal()">Cancel</button>
                 <button class="btn btn-primary" onclick="saveUser()">Create User</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Printer Modal -->
+    <div id="printerModal" class="modal-overlay" style="display:none;">
+        <div class="modal" style="max-width:450px;">
+            <div class="modal-header">
+                <h2 id="printerModalTitle">Add Printer</h2>
+                <button class="close-btn" onclick="closePrinterModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <div style="display:grid;gap:15px;">
+                    <div>
+                        <label style="font-weight:600;display:block;margin-bottom:5px;">Printer Name *</label>
+                        <input type="text" id="printerName" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="e.g. Main Receipt Printer">
+                    </div>
+                    <div>
+                        <label style="font-weight:600;display:block;margin-bottom:5px;">IP Address *</label>
+                        <input type="text" id="printerIp" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="e.g. 192.168.1.100">
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+                        <div>
+                            <label style="font-weight:600;display:block;margin-bottom:5px;">Port</label>
+                            <input type="number" id="printerPort" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" value="9100">
+                            <div style="font-size:11px;color:#666;margin-top:3px;">Default: 9100</div>
+                        </div>
+                        <div>
+                            <label style="font-weight:600;display:block;margin-bottom:5px;">Paper Width</label>
+                            <select id="printerPaperWidth" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+                                <option value="80">80mm (Standard)</option>
+                                <option value="58">58mm (Small)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="printerIsDefault">
+                            Set as default printer
+                        </label>
+                    </div>
+                </div>
+                <div style="margin-top:15px;padding:12px;background:#fff3e0;border-radius:8px;font-size:13px;color:#e65100;">
+                    <strong>Tip:</strong> Most thermal receipt printers use port 9100. Make sure the printer is connected to your network and powered on.
+                </div>
+            </div>
+            <div class="modal-footer" style="padding:15px 20px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:10px;">
+                <button class="btn btn-secondary" onclick="closePrinterModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="savePrinter()">Save Printer</button>
             </div>
         </div>
     </div>
@@ -3394,6 +3512,9 @@
             event.target.classList.add('selected');
         }
 
+        let lastSaleId = null;
+        let autoPrintEnabled = false;
+
         async function checkout() {
             if (cart.length === 0 || !currentSession) {
                 showNotification('Cart is empty or no session open', 'error');
@@ -3420,18 +3541,111 @@
                 const result = await response.json();
 
                 if (response.ok) {
-                    showNotification(`Sale completed! #${result.saleNumber} - Total: R ${result.totalAmount.toFixed(2)}`, 'success');
+                    lastSaleId = result.saleId;
+
+                    // Show sale complete modal with print option
+                    showSaleCompleteModal(result);
 
                     cart = [];
                     updateCart();
                     await loadProducts();
-                    const input = document.getElementById('barcodeInput');
-                    if (input) input.focus();
+
+                    // Auto-print if enabled
+                    if (autoPrintEnabled && lastSaleId) {
+                        printReceipt(lastSaleId);
+                    }
                 } else {
                     showNotification(result.error || 'Checkout failed', 'error');
                 }
             } catch (error) {
                 showNotification('Checkout failed: ' + error.message, 'error');
+            }
+        }
+
+        function showSaleCompleteModal(sale) {
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.id = 'saleCompleteModal';
+            modal.style.display = 'flex';
+            modal.innerHTML = `
+                <div class="modal" style="max-width: 400px;">
+                    <div class="modal-header" style="background: #10b981; color: white;">
+                        <h2 style="margin: 0;">Sale Complete!</h2>
+                        <button class="close-btn" onclick="closeSaleCompleteModal()" style="color: white;">&times;</button>
+                    </div>
+                    <div class="modal-body" style="text-align: center; padding: 30px;">
+                        <div style="font-size: 48px; margin-bottom: 10px;">✓</div>
+                        <div style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">#${sale.saleNumber}</div>
+                        <div style="font-size: 32px; font-weight: bold; color: #10b981; margin-bottom: 20px;">R ${sale.totalAmount.toFixed(2)}</div>
+                        <div style="color: #666; margin-bottom: 20px;">Payment: ${selectedPayment}</div>
+                        <div style="display: flex; gap: 10px; justify-content: center;">
+                            <button class="btn btn-primary" onclick="printReceipt(${sale.saleId})" style="padding: 15px 30px; font-size: 16px;">
+                                🖨️ Print Receipt
+                            </button>
+                            <button class="btn btn-secondary" onclick="closeSaleCompleteModal()" style="padding: 15px 30px; font-size: 16px;">
+                                Done
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function closeSaleCompleteModal() {
+            const modal = document.getElementById('saleCompleteModal');
+            if (modal) {
+                modal.remove();
+            }
+            const input = document.getElementById('barcodeInput');
+            if (input) input.focus();
+        }
+
+        async function printReceipt(saleId) {
+            try {
+                showNotification('Sending to printer...', 'info');
+
+                const response = await fetch(`${API_URL}/receipts/print/${saleId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ open_drawer: true })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification('Receipt printed successfully!', 'success');
+                    closeSaleCompleteModal();
+                } else if (result.method === 'browser' || result.receiptHtml) {
+                    // Fallback to browser print
+                    printBrowserReceipt(result.receiptHtml);
+                } else {
+                    showNotification(result.error || 'Print failed', 'error');
+                }
+            } catch (error) {
+                showNotification('Print error: ' + error.message, 'error');
+            }
+        }
+
+        function printBrowserReceipt(html) {
+            const printWindow = window.open('', '_blank', 'width=400,height=600');
+            printWindow.document.write(html);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 250);
+        }
+
+        async function printLastReceipt() {
+            if (lastSaleId) {
+                await printReceipt(lastSaleId);
+            } else {
+                showNotification('No recent sale to print', 'error');
             }
         }
 
@@ -3503,6 +3717,10 @@
             document.getElementById('companiesSection').style.display = 'none';
             document.getElementById('usersSection').style.display = 'none';
             document.getElementById('customersSection').style.display = 'none';
+            const receiptPrintersSection = document.getElementById('receipt-printersSection');
+            if (receiptPrintersSection) receiptPrintersSection.style.display = 'none';
+            const generalSection = document.getElementById('generalSection');
+            if (generalSection) generalSection.style.display = 'none';
 
             if (section === 'products') {
                 document.getElementById('productsSection').style.display = 'block';
@@ -3515,6 +3733,13 @@
             } else if (section === 'customers') {
                 document.getElementById('customersSection').style.display = 'block';
                 if (typeof loadCustomers === 'function') loadCustomers();
+            } else if (section === 'receipt-printers') {
+                document.getElementById('receipt-printersSection').style.display = 'block';
+                loadPrinters();
+                loadReceiptSettings();
+            } else if (section === 'general') {
+                document.getElementById('generalSection').style.display = 'block';
+                loadGeneralSettings();
             } else {
                 alert(`${section} section - To be implemented`);
             }
@@ -5077,8 +5302,9 @@
         }
 
         function reprintReceipt() {
-            if (!selectedSale) return;
-            printReceipt(selectedSale.sale, selectedSale.items);
+            if (!selectedSale || !selectedSale.sale) return;
+            printReceipt(selectedSale.sale.id);
+            closeSaleDetail();
         }
 
         function showReturnModal() {
@@ -5296,86 +5522,6 @@
             } catch (error) {
                 showNotification('Error resetting till: ' + error.message, 'error');
             }
-        }
-
-        // ========== RECEIPT PRINTING FUNCTIONS ==========
-
-        async function printReceipt(sale, items) {
-            // Get company settings for printer
-            try {
-                const response = await fetch(`${API_URL}/pos/settings`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const settings = await response.json();
-
-                // Build receipt content
-                const receiptContent = buildReceiptContent(sale, items, settings);
-
-                // Try to print (browser print dialog as fallback)
-                const printWindow = window.open('', '_blank', 'width=300,height=600');
-                printWindow.document.write(`
-                    <html>
-                    <head>
-                        <title>Receipt</title>
-                        <style>
-                            body { font-family: 'Courier New', monospace; font-size: 12px; width: 280px; margin: 0 auto; }
-                            .center { text-align: center; }
-                            .bold { font-weight: bold; }
-                            .line { border-bottom: 1px dashed #000; margin: 5px 0; }
-                            .row { display: flex; justify-content: space-between; }
-                            .total { font-size: 14px; font-weight: bold; }
-                        </style>
-                    </head>
-                    <body>
-                        ${receiptContent}
-                    </body>
-                    </html>
-                `);
-                printWindow.document.close();
-                printWindow.print();
-
-            } catch (error) {
-                console.error('Print error:', error);
-                showNotification('Error printing receipt', 'error');
-            }
-        }
-
-        function buildReceiptContent(sale, items, settings) {
-            const header = settings?.receipt_header || 'Thank you for your purchase!';
-            const footer = settings?.receipt_footer || 'Please come again!';
-
-            let html = `
-                <div class="center bold" style="font-size: 16px;">CHECKOUT CHARLIE</div>
-                <div class="center">${header}</div>
-                <div class="line"></div>
-                <div>Sale #: ${sale.sale_number}</div>
-                <div>Date: ${new Date(sale.created_at).toLocaleString()}</div>
-                <div>Cashier: ${sale.cashier_name || 'N/A'}</div>
-                <div class="line"></div>
-            `;
-
-            items.forEach(item => {
-                html += `
-                    <div>${item.product_name}</div>
-                    <div class="row">
-                        <span>${item.quantity} x R ${parseFloat(item.unit_price).toFixed(2)}</span>
-                        <span>R ${parseFloat(item.total_price).toFixed(2)}</span>
-                    </div>
-                `;
-            });
-
-            html += `
-                <div class="line"></div>
-                <div class="row"><span>Subtotal:</span><span>R ${parseFloat(sale.subtotal).toFixed(2)}</span></div>
-                <div class="row"><span>VAT (15%):</span><span>R ${parseFloat(sale.vat_amount).toFixed(2)}</span></div>
-                <div class="line"></div>
-                <div class="row total"><span>TOTAL:</span><span>R ${parseFloat(sale.total_amount).toFixed(2)}</span></div>
-                <div class="row"><span>Payment:</span><span>${sale.payment_method}</span></div>
-                <div class="line"></div>
-                <div class="center">${footer}</div>
-            `;
-
-            return html;
         }
 
         // ========== UPDATE CART WITH QUANTITY INPUT ==========
@@ -6259,6 +6405,222 @@
             } catch (e) {
                 showNotification('Failed to remove user', 'error');
             }
+        }
+
+        // ========== RECEIPT PRINTERS MANAGEMENT ==========
+
+        let editingPrinterId = null;
+
+        async function loadPrinters() {
+            try {
+                const res = await fetch(`${API_URL}/receipts/printers`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const printers = data.printers || [];
+                    const tbody = document.getElementById('printersTableBody');
+
+                    if (printers.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#999;padding:20px;">No printers configured. Add a thermal printer to enable receipt printing.</td></tr>';
+                    } else {
+                        tbody.innerHTML = printers.map(p => `
+                            <tr>
+                                <td><strong>${p.printer_name}</strong></td>
+                                <td>${p.ip_address}</td>
+                                <td>${p.port || 9100}</td>
+                                <td>${p.paper_width || 80}mm</td>
+                                <td>${p.is_default ? '<span class="status-badge active">Default</span>' : ''}</td>
+                                <td><span class="status-badge ${p.is_active ? 'active' : 'closed'}">${p.is_active ? 'Active' : 'Inactive'}</span></td>
+                                <td>
+                                    <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="testPrinter(${p.id})">Test</button>
+                                    <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="editPrinter(${p.id}, '${p.printer_name}', '${p.ip_address}', ${p.port || 9100}, ${p.paper_width || 80}, ${p.is_default ? 1 : 0})">Edit</button>
+                                    <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;color:#c62828;" onclick="deletePrinter(${p.id})">Delete</button>
+                                </td>
+                            </tr>
+                        `).join('');
+                    }
+                }
+            } catch (e) {
+                console.log('Error loading printers:', e);
+            }
+        }
+
+        async function loadReceiptSettings() {
+            try {
+                const res = await fetch(`${API_URL}/receipts/settings`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const settings = data.settings || {};
+                    document.getElementById('receiptHeader').value = settings.receipt_header || '';
+                    document.getElementById('receiptFooter').value = settings.receipt_footer || '';
+                    document.getElementById('autoPrintReceipt').checked = settings.auto_print_receipt === 1;
+                    autoPrintEnabled = settings.auto_print_receipt === 1;
+                }
+            } catch (e) {
+                console.log('Error loading receipt settings:', e);
+            }
+        }
+
+        async function saveReceiptSettings() {
+            try {
+                const res = await fetch(`${API_URL}/receipts/settings`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        receipt_header: document.getElementById('receiptHeader').value,
+                        receipt_footer: document.getElementById('receiptFooter').value,
+                        auto_print_receipt: document.getElementById('autoPrintReceipt').checked ? 1 : 0
+                    })
+                });
+
+                if (res.ok) {
+                    showNotification('Receipt settings saved!', 'success');
+                    autoPrintEnabled = document.getElementById('autoPrintReceipt').checked;
+                } else {
+                    const err = await res.json();
+                    showNotification(err.error || 'Failed to save settings', 'error');
+                }
+            } catch (e) {
+                showNotification('Failed to save settings', 'error');
+            }
+        }
+
+        function showAddPrinterModal() {
+            editingPrinterId = null;
+            document.getElementById('printerModalTitle').textContent = 'Add Printer';
+            document.getElementById('printerName').value = '';
+            document.getElementById('printerIp').value = '';
+            document.getElementById('printerPort').value = '9100';
+            document.getElementById('printerPaperWidth').value = '80';
+            document.getElementById('printerIsDefault').checked = false;
+            document.getElementById('printerModal').style.display = 'flex';
+        }
+
+        function editPrinter(id, name, ip, port, paperWidth, isDefault) {
+            editingPrinterId = id;
+            document.getElementById('printerModalTitle').textContent = 'Edit Printer';
+            document.getElementById('printerName').value = name;
+            document.getElementById('printerIp').value = ip;
+            document.getElementById('printerPort').value = port;
+            document.getElementById('printerPaperWidth').value = paperWidth;
+            document.getElementById('printerIsDefault').checked = isDefault === 1;
+            document.getElementById('printerModal').style.display = 'flex';
+        }
+
+        function closePrinterModal() {
+            document.getElementById('printerModal').style.display = 'none';
+        }
+
+        async function savePrinter() {
+            const name = document.getElementById('printerName').value.trim();
+            const ip = document.getElementById('printerIp').value.trim();
+            const port = parseInt(document.getElementById('printerPort').value) || 9100;
+            const paperWidth = parseInt(document.getElementById('printerPaperWidth').value) || 80;
+            const isDefault = document.getElementById('printerIsDefault').checked ? 1 : 0;
+
+            if (!name) { showNotification('Printer name is required', 'error'); return; }
+            if (!ip) { showNotification('IP address is required', 'error'); return; }
+
+            try {
+                const url = editingPrinterId
+                    ? `${API_URL}/receipts/printers/${editingPrinterId}`
+                    : `${API_URL}/receipts/printers`;
+                const method = editingPrinterId ? 'PUT' : 'POST';
+
+                const res = await fetch(url, {
+                    method,
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        printer_name: name,
+                        ip_address: ip,
+                        port,
+                        paper_width: paperWidth,
+                        is_default: isDefault
+                    })
+                });
+
+                if (res.ok) {
+                    showNotification(editingPrinterId ? 'Printer updated!' : 'Printer added!', 'success');
+                    closePrinterModal();
+                    loadPrinters();
+                } else {
+                    const err = await res.json();
+                    showNotification(err.error || 'Failed to save printer', 'error');
+                }
+            } catch (e) {
+                showNotification('Failed to save printer', 'error');
+            }
+        }
+
+        async function testPrinter(printerId) {
+            showNotification('Sending test print...', 'info');
+            try {
+                const res = await fetch(`${API_URL}/receipts/printers/${printerId}/test`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    showNotification('Test print sent successfully!', 'success');
+                } else {
+                    showNotification(data.error || 'Test print failed', 'error');
+                }
+            } catch (e) {
+                showNotification('Test print failed: ' + e.message, 'error');
+            }
+        }
+
+        async function deletePrinter(printerId) {
+            if (!confirm('Delete this printer?')) return;
+
+            try {
+                const res = await fetch(`${API_URL}/receipts/printers/${printerId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (res.ok) {
+                    showNotification('Printer deleted', 'success');
+                    loadPrinters();
+                } else {
+                    const err = await res.json();
+                    showNotification(err.error || 'Failed to delete printer', 'error');
+                }
+            } catch (e) {
+                showNotification('Failed to delete printer', 'error');
+            }
+        }
+
+        async function loadGeneralSettings() {
+            // Load float and other general settings - can be extended
+            try {
+                const res = await fetch(`${API_URL}/pos/settings`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.settings && data.settings.default_float_amount) {
+                        document.getElementById('defaultFloatAmount').value = data.settings.default_float_amount;
+                    }
+                }
+            } catch (e) {
+                console.log('General settings load error:', e);
+            }
+        }
+
+        async function saveGeneralSettings() {
+            showNotification('General settings saved!', 'success');
+            // Can be extended to save float and other settings
         }
 
         // ========== REGISTRATION & SUPER ADMIN ==========
