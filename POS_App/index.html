@@ -7962,10 +7962,13 @@
                             </td>
                             <td style="padding: 12px 15px; font-size: 12px; color: #94a3b8;">${c.created_at ? new Date(c.created_at).toLocaleDateString() : '-'}</td>
                             <td style="padding: 12px 15px;">
-                                ${c.subscription_status === 'active' ?
-                                    `<button onclick="updateCompanyStatus(${c.id}, 'suspended')" style="background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Suspend</button>` :
-                                    `<button onclick="updateCompanyStatus(${c.id}, 'active')" style="background: #22c55e; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Activate</button>`
-                                }
+                                <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                                    ${c.subscription_status === 'active' ?
+                                        `<button onclick="updateCompanyStatus(${c.id}, 'suspended')" style="background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Suspend</button>` :
+                                        `<button onclick="updateCompanyStatus(${c.id}, 'active')" style="background: #22c55e; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Activate</button>`
+                                    }
+                                    <button onclick="deleteCompany(${c.id}, '${c.company_name.replace(/'/g, "\\'")}')" style="background: #7c3aed; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Delete</button>
+                                </div>
                             </td>
                         </tr>`;
                     }).join('');
@@ -7998,6 +8001,36 @@
                 }
             } catch (e) {
                 showNotification('Failed to update company status', 'error');
+            }
+        }
+
+        async function deleteCompany(companyId, companyName) {
+            // Double confirmation for safety
+            if (!confirm(`Are you sure you want to DELETE "${companyName}"?\n\nThis will permanently remove:\n- The company\n- All users\n- All products\n- All sales history\n- All other data\n\nThis action CANNOT be undone!`)) return;
+
+            const confirmText = prompt(`To confirm deletion, type the company name:\n${companyName}`);
+            if (confirmText !== companyName) {
+                showNotification('Company name did not match. Deletion cancelled.', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/auth/admin/companies/${companyId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                if (res.ok) {
+                    showNotification(`Company "${companyName}" deleted successfully`, 'success');
+                    loadAdminStats();
+                    loadAdminCompanies();
+                } else {
+                    const err = await res.json();
+                    showNotification(err.error || 'Failed to delete company', 'error');
+                }
+            } catch (e) {
+                showNotification('Failed to delete company', 'error');
             }
         }
 

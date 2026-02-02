@@ -434,7 +434,6 @@ router.get('/my-companies', authenticateToken, (req, res) => {
     JOIN user_company_access uca ON c.id = uca.company_id
     WHERE uca.user_id = ? AND uca.is_active = 1 AND c.is_active = 1
       AND (c.is_location = 0 OR c.is_location IS NULL)
-      AND c.subscription_status = 'active'
     ORDER BY c.company_name
   `, [userId], (err, companies) => {
     if (err) return res.status(500).json({ error: 'Database error' });
@@ -1245,6 +1244,60 @@ router.put('/admin/companies/:id/status', authenticateToken, requireSuperAdmin, 
       res.json({ message: `Company ${status === 'active' ? 'activated' : status}`, status });
     }
   );
+});
+
+/**
+ * DELETE /api/auth/admin/companies/:id
+ * Permanently delete a company and all associated data (super admin only)
+ */
+router.delete('/admin/companies/:id', authenticateToken, requireSuperAdmin, (req, res) => {
+  const companyId = req.params.id;
+
+  // Delete in the correct order to avoid foreign key issues
+  // Using serialize to run sequentially
+  db.serialize(() => {
+    db.run('BEGIN TRANSACTION');
+
+    // Delete company-related data in order
+    const deleteQueries = [
+      'DELETE FROM sale_items WHERE sale_id IN (SELECT id FROM sales WHERE company_id = ?)',
+      'DELETE FROM sales WHERE company_id = ?',
+      'DELETE FROM till_sessions WHERE company_id = ?',
+      'DELETE FROM tills WHERE company_id = ?',
+      'DELETE FROM stock_adjustments WHERE company_id = ?',
+      'DELETE FROM product_companies WHERE company_id = ?',
+      'DELETE FROM products WHERE company_id = ?',
+      'DELETE FROM categories WHERE company_id = ?',
+      'DELETE FROM customers WHERE company_id = ?',
+      'DELETE FROM user_company_access WHERE company_id = ?',
+      'DELETE FROM audit_log WHERE company_id = ?',
+      // Delete locations (sub-companies) first
+      'DELETE FROM companies WHERE parent_company_id = ?',
+      // Finally delete the company itself
+      'DELETE FROM companies WHERE id = ?'
+    ];
+
+    let hasError = false;
+
+    deleteQueries.forEach((query, index) => {
+      if (!hasError) {
+        db.run(query, [companyId], function(err) {
+          if (err) {
+            console.error(`Delete error on query ${index}:`, err);
+            hasError = true;
+          }
+        });
+      }
+    });
+
+    db.run('COMMIT', function(err) {
+      if (err || hasError) {
+        db.run('ROLLBACK');
+        return res.status(500).json({ error: 'Failed to delete company. Some data may remain.' });
+      }
+      res.json({ message: 'Company and all associated data deleted successfully' });
+    });
+  });
 });
 
 /**
