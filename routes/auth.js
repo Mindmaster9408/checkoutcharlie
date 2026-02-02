@@ -1274,8 +1274,16 @@ router.delete('/admin/companies/:id', authenticateToken, requireSuperAdmin, asyn
     'DELETE FROM products WHERE company_id = ?',
     'DELETE FROM categories WHERE company_id = ?',
     'DELETE FROM customers WHERE company_id = ?',
-    'DELETE FROM user_company_access WHERE company_id = ?',
     'DELETE FROM audit_log WHERE company_id = ?',
+    // Delete users who ONLY belong to this company (not multi-company users)
+    `DELETE FROM users WHERE id IN (
+      SELECT u.id FROM users u
+      JOIN user_company_access uca ON u.id = uca.user_id
+      WHERE uca.company_id = ?
+      AND u.is_super_admin = 0
+      AND (SELECT COUNT(*) FROM user_company_access WHERE user_id = u.id) = 1
+    )`,
+    'DELETE FROM user_company_access WHERE company_id = ?',
     // Delete locations (sub-companies) first
     'DELETE FROM companies WHERE parent_company_id = ?',
     // Finally delete the company itself
