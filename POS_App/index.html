@@ -7112,6 +7112,11 @@
         }
 
         async function loadMainCompanyInfo() {
+            // Set immediate fallback from session data
+            if (currentCompanyName) {
+                document.getElementById('mainCompanyName').textContent = currentCompanyName;
+            }
+
             try {
                 const res = await fetch(`${API_URL}/auth/company-info`, {
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -7119,20 +7124,21 @@
                 if (res.ok) {
                     const data = await res.json();
                     const company = data.company || {};
-                    document.getElementById('mainCompanyName').textContent = company.company_name || 'My Company';
+                    document.getElementById('mainCompanyName').textContent = company.company_name || currentCompanyName || 'My Company';
                     document.getElementById('mainCompanyVat').textContent = company.vat_number || '-';
                     document.getElementById('mainCompanyDetails').textContent =
                         `${company.trading_name || ''} ${company.address ? '| ' + company.address : ''}`.trim() || '';
                 } else {
-                    // API error - try to use company name from current session
+                    // API error - use session data as fallback
                     const errorData = await res.json().catch(() => ({}));
                     console.log('Company info API error:', res.status, errorData);
-                    // Fallback: use company name from companies list if available
-                    document.getElementById('mainCompanyName').textContent = currentCompanyId ? `Company #${currentCompanyId}` : 'My Company';
+                    document.getElementById('mainCompanyName').textContent = currentCompanyName || 'My Company';
+                    document.getElementById('mainCompanyVat').textContent = '-';
                 }
             } catch (e) {
                 console.log('Error loading main company:', e);
-                document.getElementById('mainCompanyName').textContent = 'My Company';
+                document.getElementById('mainCompanyName').textContent = currentCompanyName || 'My Company';
+                document.getElementById('mainCompanyVat').textContent = '-';
             }
         }
 
