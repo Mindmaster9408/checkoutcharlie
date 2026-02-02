@@ -332,6 +332,117 @@ router.put('/company-info', authenticateToken, requireCompany, (req, res) => {
 });
 
 /**
+ * GET /api/auth/locations
+ * Get all locations (sub-companies) for the current company
+ */
+router.get('/locations', authenticateToken, requireCompany, (req, res) => {
+  const companyId = req.user.companyId;
+
+  // Get current company to find parent, or get children if this is the parent
+  db.get('SELECT * FROM companies WHERE id = ?', [companyId], (err, company) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+
+    // Determine the parent company ID
+    const parentId = company.parent_company_id || companyId;
+
+    // Get all locations (sub-companies) under this parent
+    db.all(`
+      SELECT c.*, (SELECT COUNT(*) FROM user_company_access WHERE company_id = c.id) as user_count
+      FROM companies c
+      WHERE c.parent_company_id = ? AND c.is_location = 1
+      ORDER BY c.location_name, c.company_name
+    `, [parentId], (err, locations) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      res.json({ locations: locations || [] });
+    });
+  });
+});
+
+/**
+ * POST /api/auth/locations
+ * Create a new location (sub-company) under the current company
+ */
+router.post('/locations', authenticateToken, requireCompany, (req, res) => {
+  const companyId = req.user.companyId;
+  const userId = req.user.userId;
+  const { location_name, address, contact_phone, contact_email } = req.body;
+
+  if (!location_name) {
+    return res.status(400).json({ error: 'Location name is required' });
+  }
+
+  // Get the parent company info to inherit details
+  db.get('SELECT * FROM companies WHERE id = ?', [companyId], (err, parentCompany) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (!parentCompany) return res.status(404).json({ error: 'Company not found' });
+
+    // Determine actual parent (if current is also a location, use its parent)
+    const actualParentId = parentCompany.parent_company_id || companyId;
+
+    // Create the location with inherited company details
+    db.run(`
+      INSERT INTO companies (
+        company_name, trading_name, registration_number, vat_number,
+        contact_email, contact_phone, address, owner_user_id,
+        parent_company_id, is_location, location_name,
+        subscription_status, is_active
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 'active', 1)
+    `, [
+      parentCompany.company_name,
+      parentCompany.trading_name,
+      parentCompany.registration_number,
+      parentCompany.vat_number,
+      contact_email || parentCompany.contact_email,
+      contact_phone || parentCompany.contact_phone,
+      address,
+      parentCompany.owner_user_id,
+      actualParentId,
+      location_name
+    ], function(err) {
+      if (err) return res.status(500).json({ error: 'Database error', details: err.message });
+
+      const locationId = this.lastID;
+
+      // Give the creating user access to the new location
+      db.run(`
+        INSERT INTO user_company_access (user_id, company_id, role, is_active)
+        VALUES (?, ?, 'store_manager', 1)
+      `, [userId, locationId], (err) => {
+        if (err) console.log('Error adding user access to location:', err);
+
+        res.status(201).json({
+          message: 'Location created successfully',
+          locationId: locationId
+        });
+      });
+    });
+  });
+});
+
+/**
+ * GET /api/auth/my-companies
+ * Get all companies the user owns or has access to (excluding locations)
+ */
+router.get('/my-companies', authenticateToken, (req, res) => {
+  const userId = req.user.userId;
+
+  db.all(`
+    SELECT c.*,
+      (SELECT COUNT(*) FROM companies WHERE parent_company_id = c.id AND is_location = 1) as location_count,
+      (SELECT COUNT(*) FROM user_company_access WHERE company_id = c.id) as user_count
+    FROM companies c
+    JOIN user_company_access uca ON c.id = uca.company_id
+    WHERE uca.user_id = ? AND uca.is_active = 1 AND c.is_active = 1
+      AND (c.is_location = 0 OR c.is_location IS NULL)
+      AND c.subscription_status = 'active'
+    ORDER BY c.company_name
+  `, [userId], (err, companies) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    res.json({ companies: companies || [] });
+  });
+});
+
+/**
  * POST /api/auth/register
  * Register a new user (via invitation or self-registration for business owners)
  */

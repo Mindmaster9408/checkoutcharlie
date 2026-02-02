@@ -1919,6 +1919,11 @@
                             </div>
                         </div>
 
+                        <!-- Multi-Location Stock Info -->
+                        <div id="multiLocationInfo" style="background: #e3f2fd; padding: 12px 15px; border-radius: 8px; margin-bottom: 15px; font-size: 13px; display: none;">
+                            <strong>Multi-Location Mode:</strong> Stock is tracked separately per location. Click a product to manage stock levels for each location.
+                        </div>
+
                         <div class="products-container">
                             <div class="product-count" id="productCount">0 Products</div>
                             <table class="products-table">
@@ -1929,6 +1934,7 @@
                                         <th>Category</th>
                                         <th>Price</th>
                                         <th>Stock</th>
+                                        <th>Locations</th>
                                     </tr>
                                 </thead>
                                 <tbody id="productsTableBody">
@@ -1943,28 +1949,81 @@
                         <div class="products-header">
                             <h3 style="margin:0;">Company Management</h3>
                             <div class="header-actions">
+                                <button class="btn btn-secondary" onclick="showAddLocationModal()">+ Add Location</button>
                                 <button class="btn btn-primary" onclick="showAddCompanyModal()">+ New Company</button>
                             </div>
                         </div>
-                        <p style="color: #666; margin: 10px 0 20px; font-size: 13px;">Each company is a separate tenant with its own products, sales, employees, and data. Users can belong to different companies with different roles.</p>
-                        <div class="products-container">
-                            <table class="products-table">
-                                <thead>
-                                    <tr>
-                                        <th>Company Name</th>
-                                        <th>Trading Name</th>
-                                        <th>Reg Number</th>
-                                        <th>VAT</th>
-                                        <th>Email</th>
-                                        <th>Users</th>
-                                        <th>Status</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="companiesTableBody">
-                                    <tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">Loading companies...</td></tr>
-                                </tbody>
-                            </table>
+
+                        <!-- Tabs for Locations vs Other Companies -->
+                        <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+                            <button class="btn" id="tabLocations" onclick="showCompanyTab('locations')" style="background: #667eea; color: white;">My Locations</button>
+                            <button class="btn btn-secondary" id="tabCompanies" onclick="showCompanyTab('companies')">Other Companies</button>
+                        </div>
+
+                        <!-- Info Box -->
+                        <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 13px;">
+                            <strong>Locations</strong> are branches of your main company (same VAT, same business). Reports can be viewed per location or combined.<br>
+                            <strong>Other Companies</strong> are separate businesses you own (separate invoicing, separate VAT).
+                        </div>
+
+                        <!-- Main Company Card -->
+                        <div id="mainCompanyCard" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div style="font-size: 12px; opacity: 0.8; text-transform: uppercase;">Current Company</div>
+                                    <div style="font-size: 24px; font-weight: bold;" id="mainCompanyName">Loading...</div>
+                                    <div style="opacity: 0.9;" id="mainCompanyDetails"></div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 12px; opacity: 0.8;">VAT Number</div>
+                                    <div style="font-size: 18px; font-weight: bold;" id="mainCompanyVat">-</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Locations List -->
+                        <div id="locationsList">
+                            <h4 style="margin: 0 0 15px 0;">Store Locations</h4>
+                            <div class="products-container">
+                                <table class="products-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Location Name</th>
+                                            <th>Address</th>
+                                            <th>Phone</th>
+                                            <th>Users</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="locationsTableBody">
+                                        <tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">No locations yet. Add your first store location.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Other Companies List -->
+                        <div id="otherCompaniesList" style="display: none;">
+                            <h4 style="margin: 0 0 15px 0;">Your Other Companies</h4>
+                            <p style="color: #666; font-size: 13px; margin-bottom: 15px;">Separate businesses with their own invoicing and data. Click "Switch" to access them.</p>
+                            <div class="products-container">
+                                <table class="products-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Company Name</th>
+                                            <th>Trading Name</th>
+                                            <th>VAT Number</th>
+                                            <th>Locations</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="otherCompaniesTableBody">
+                                        <tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">No other companies. Register a new company to manage multiple businesses.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
 
@@ -2470,6 +2529,88 @@
             <div class="modal-footer" style="padding:15px 20px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:10px;">
                 <button class="btn btn-secondary" onclick="closeCompanyModal()">Cancel</button>
                 <button class="btn btn-primary" onclick="saveCompany()">Create Company</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Location Modal -->
+    <div id="locationModal" class="modal-overlay" style="display:none;">
+        <div class="modal" style="max-width:500px;">
+            <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                <h2 id="locationModalTitle">Add Store Location</h2>
+                <button class="close-btn" onclick="closeLocationModal()" style="color: white;">&times;</button>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <div style="background: #e8f5e9; padding: 12px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; color: #2e7d32;">
+                    <strong>Location = Branch of your company</strong><br>
+                    Same VAT number, same business entity. Perfect for multiple stores.
+                </div>
+                <div style="display:grid;gap:15px;">
+                    <div>
+                        <label style="font-weight:600;display:block;margin-bottom:5px;">Location Name *</label>
+                        <input type="text" id="locationName" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="e.g. Main Branch, Sandton Store, Mall Outlet">
+                    </div>
+                    <div>
+                        <label style="font-weight:600;display:block;margin-bottom:5px;">Address</label>
+                        <textarea id="locationAddress" rows="2" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;resize:vertical;" placeholder="Physical address of this location"></textarea>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+                        <div>
+                            <label style="font-weight:600;display:block;margin-bottom:5px;">Phone</label>
+                            <input type="text" id="locationPhone" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="Location phone number">
+                        </div>
+                        <div>
+                            <label style="font-weight:600;display:block;margin-bottom:5px;">Email</label>
+                            <input type="email" id="locationEmail" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="Location email">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding:15px 20px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:10px;">
+                <button class="btn btn-secondary" onclick="closeLocationModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveLocation()">Add Location</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Stock Modal (Multi-Location) -->
+    <div id="productStockModal" class="modal-overlay" style="display:none;">
+        <div class="modal" style="max-width:600px;">
+            <div class="modal-header">
+                <h2>Manage Stock by Location</h2>
+                <button class="close-btn" onclick="closeProductStockModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding:20px;">
+                <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="font-size: 18px; font-weight: bold;" id="stockProductName">Product Name</div>
+                    <div style="color: #666;" id="stockProductCode">Code: ABC123</div>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="stockShareAllLocations" onchange="toggleShareAllLocations()">
+                        <strong>Share this product to all locations</strong>
+                    </label>
+                </div>
+
+                <h4 style="margin: 0 0 10px 0;">Stock per Location</h4>
+                <table class="products-table" style="margin-bottom: 0;">
+                    <thead>
+                        <tr>
+                            <th>Location</th>
+                            <th style="width: 120px;">Stock</th>
+                            <th style="width: 120px;">Reorder Level</th>
+                            <th style="width: 80px;">Active</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productStockTableBody">
+                        <tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">Loading locations...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer" style="padding:15px 20px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:10px;">
+                <button class="btn btn-secondary" onclick="closeProductStockModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveProductStock()">Save Stock Levels</button>
             </div>
         </div>
     </div>
@@ -6842,41 +6983,220 @@
 
         // ========== COMPANY & USER MANAGEMENT ==========
 
+        let currentCompanyTab = 'locations';
+
         async function loadCompanies() {
+            // Load main company info
+            await loadMainCompanyInfo();
+            // Load locations and other companies
+            await loadLocations();
+            await loadOtherCompanies();
+        }
+
+        async function loadMainCompanyInfo() {
             try {
-                const res = await fetch(`${API_URL}/auth/companies/all`, {
+                const res = await fetch(`${API_URL}/auth/company-info`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 if (res.ok) {
                     const data = await res.json();
-                    const companies = data.companies || [];
-                    const tbody = document.getElementById('companiesTableBody');
+                    const company = data.company || {};
+                    document.getElementById('mainCompanyName').textContent = company.company_name || 'My Company';
+                    document.getElementById('mainCompanyVat').textContent = company.vat_number || '-';
+                    document.getElementById('mainCompanyDetails').textContent =
+                        `${company.trading_name || ''} ${company.address ? '| ' + company.address : ''}`.trim() || '';
+                }
+            } catch (e) {
+                console.log('Error loading main company:', e);
+            }
+        }
+
+        async function loadLocations() {
+            try {
+                const res = await fetch(`${API_URL}/auth/locations`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const tbody = document.getElementById('locationsTableBody');
+
+                if (res.ok) {
+                    const data = await res.json();
+                    const locations = data.locations || [];
+
+                    if (locations.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">No locations yet. Add your first store location.</td></tr>';
+                    } else {
+                        tbody.innerHTML = locations.map(loc => `
+                            <tr>
+                                <td><strong>${loc.location_name || loc.company_name}</strong></td>
+                                <td>${loc.address || '-'}</td>
+                                <td>${loc.contact_phone || '-'}</td>
+                                <td>${loc.user_count || 0}</td>
+                                <td><span class="status-badge ${loc.is_active ? 'active' : 'closed'}">${loc.is_active ? 'Active' : 'Inactive'}</span></td>
+                                <td>
+                                    <button class="btn btn-primary" style="padding:4px 12px;font-size:12px;" onclick="switchToLocation(${loc.id})">Switch</button>
+                                    <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="editLocation(${loc.id})">Edit</button>
+                                </td>
+                            </tr>
+                        `).join('');
+                    }
+                }
+            } catch (e) {
+                console.log('Error loading locations:', e);
+            }
+        }
+
+        async function loadOtherCompanies() {
+            try {
+                const res = await fetch(`${API_URL}/auth/my-companies`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const tbody = document.getElementById('otherCompaniesTableBody');
+
+                if (res.ok) {
+                    const data = await res.json();
+                    // Filter out current company and locations
+                    const companies = (data.companies || []).filter(c => !c.is_location && c.id !== selectedCompanyId);
+
                     if (companies.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#999;padding:20px;">No companies found. Create your first company.</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#999;padding:20px;">No other companies. Register a new company to manage multiple businesses.</td></tr>';
                     } else {
                         tbody.innerHTML = companies.map(c => `
                             <tr>
                                 <td><strong>${c.company_name}</strong></td>
                                 <td>${c.trading_name || '-'}</td>
-                                <td>${c.registration_number || '-'}</td>
                                 <td>${c.vat_number || '-'}</td>
-                                <td>${c.contact_email || '-'}</td>
-                                <td>${c.user_count || 0}</td>
+                                <td>${c.location_count || 0}</td>
                                 <td><span class="status-badge ${c.is_active ? 'active' : 'closed'}">${c.is_active ? 'Active' : 'Inactive'}</span></td>
                                 <td>
+                                    <button class="btn btn-primary" style="padding:4px 12px;font-size:12px;" onclick="switchToCompany(${c.id})">Switch</button>
                                     <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="editCompany(${c.id})">Edit</button>
-                                    <button class="btn btn-primary" style="padding:4px 10px;font-size:12px;" onclick="viewCompanyUsers(${c.id})">Users</button>
                                 </td>
                             </tr>
                         `).join('');
                     }
-                } else {
-                    const err = await res.json();
-                    document.getElementById('companiesTableBody').innerHTML =
-                        `<tr><td colspan="8" style="text-align:center;color:#c62828;padding:20px;">${err.error || 'Failed to load companies'}</td></tr>`;
                 }
             } catch (e) {
-                console.log('Companies load error:', e);
+                console.log('Error loading other companies:', e);
+            }
+        }
+
+        function showCompanyTab(tab) {
+            currentCompanyTab = tab;
+            document.getElementById('tabLocations').className = tab === 'locations' ? 'btn' : 'btn btn-secondary';
+            document.getElementById('tabLocations').style.background = tab === 'locations' ? '#667eea' : '';
+            document.getElementById('tabLocations').style.color = tab === 'locations' ? 'white' : '';
+            document.getElementById('tabCompanies').className = tab === 'companies' ? 'btn' : 'btn btn-secondary';
+            document.getElementById('tabCompanies').style.background = tab === 'companies' ? '#667eea' : '';
+            document.getElementById('tabCompanies').style.color = tab === 'companies' ? 'white' : '';
+
+            document.getElementById('locationsList').style.display = tab === 'locations' ? 'block' : 'none';
+            document.getElementById('otherCompaniesList').style.display = tab === 'companies' ? 'block' : 'none';
+        }
+
+        // Location Modal Functions
+        function showAddLocationModal() {
+            document.getElementById('locationModalTitle').textContent = 'Add Store Location';
+            document.getElementById('locationName').value = '';
+            document.getElementById('locationAddress').value = '';
+            document.getElementById('locationPhone').value = '';
+            document.getElementById('locationEmail').value = '';
+            document.getElementById('locationModal').style.display = 'flex';
+        }
+
+        function closeLocationModal() {
+            document.getElementById('locationModal').style.display = 'none';
+        }
+
+        async function saveLocation() {
+            const name = document.getElementById('locationName').value.trim();
+            if (!name) {
+                showNotification('Location name is required', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_URL}/auth/locations`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        location_name: name,
+                        address: document.getElementById('locationAddress').value.trim() || null,
+                        contact_phone: document.getElementById('locationPhone').value.trim() || null,
+                        contact_email: document.getElementById('locationEmail').value.trim() || null
+                    })
+                });
+
+                if (res.ok) {
+                    showNotification('Location added successfully!', 'success');
+                    closeLocationModal();
+                    loadLocations();
+                } else {
+                    const err = await res.json();
+                    showNotification(err.error || 'Failed to add location', 'error');
+                }
+            } catch (e) {
+                showNotification('Failed to add location', 'error');
+            }
+        }
+
+        function editLocation(id) {
+            showNotification('Location editing coming soon', 'info');
+        }
+
+        async function switchToLocation(locationId) {
+            try {
+                const res = await fetch(`${API_URL}/auth/select-company`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ companyId: locationId })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    token = data.token;
+                    localStorage.setItem('token', token);
+                    selectedCompanyId = locationId;
+                    showNotification('Switched to location!', 'success');
+                    location.reload();
+                } else {
+                    const err = await res.json();
+                    showNotification(err.error || 'Failed to switch location', 'error');
+                }
+            } catch (e) {
+                showNotification('Failed to switch location', 'error');
+            }
+        }
+
+        async function switchToCompany(companyId) {
+            try {
+                const res = await fetch(`${API_URL}/auth/select-company`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ companyId: companyId })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    token = data.token;
+                    localStorage.setItem('token', token);
+                    selectedCompanyId = companyId;
+                    showNotification('Switched to company!', 'success');
+                    location.reload();
+                } else {
+                    const err = await res.json();
+                    showNotification(err.error || 'Failed to switch company', 'error');
+                }
+            } catch (e) {
+                showNotification('Failed to switch company', 'error');
             }
         }
 

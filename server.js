@@ -75,6 +75,24 @@ async function initDatabase() {
     await pool.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP`);
     await pool.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS approved_by_user_id INTEGER`);
 
+    // Multi-location / Multi-company columns
+    await pool.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS parent_company_id INTEGER`);
+    await pool.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS is_location INTEGER DEFAULT 0`);
+    await pool.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS location_name VARCHAR(255)`);
+
+    // Product sharing across companies table
+    await pool.query(`CREATE TABLE IF NOT EXISTS product_companies (
+      id SERIAL PRIMARY KEY,
+      product_id INTEGER NOT NULL,
+      company_id INTEGER NOT NULL,
+      stock_quantity INTEGER DEFAULT 0,
+      reorder_level INTEGER DEFAULT 10,
+      is_active INTEGER DEFAULT 1,
+      price_override DECIMAL(10,2),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(product_id, company_id)
+    )`);
+
     // Accounting Firms table
     await pool.query(`CREATE TABLE IF NOT EXISTS accounting_firms (
       id SERIAL PRIMARY KEY,
