@@ -11,7 +11,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const db = require('../database');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireCompany } = require('../middleware/auth');
 const { canAccessMultipleCompanies, getRolePermissions } = require('../config/permissions');
 
 const router = express.Router();
