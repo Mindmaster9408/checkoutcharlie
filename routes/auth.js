@@ -1247,6 +1247,106 @@ router.put('/admin/companies/:id/status', authenticateToken, requireSuperAdmin, 
 });
 
 /**
+ * GET /api/auth/admin/companies/:id
+ * Get full company details including owner info (super admin only)
+ */
+router.get('/admin/companies/:id', authenticateToken, requireSuperAdmin, (req, res) => {
+  const companyId = req.params.id;
+
+  // Get company details
+  db.get('SELECT * FROM companies WHERE id = ?', [companyId], (err, company) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (!company) return res.status(404).json({ error: 'Company not found' });
+
+    // Get owner (business_owner role)
+    db.get(`
+      SELECT u.id, u.username, u.email, u.full_name, u.phone
+      FROM users u
+      JOIN user_company_access uca ON u.id = uca.user_id
+      WHERE uca.company_id = ? AND uca.role IN ('business_owner', 'owner')
+      LIMIT 1
+    `, [companyId], (err, owner) => {
+      if (err) owner = null;
+
+      // Get stats
+      db.get(`
+        SELECT
+          (SELECT COUNT(*) FROM user_company_access WHERE company_id = ?) as user_count,
+          (SELECT COUNT(*) FROM products WHERE company_id = ?) as product_count,
+          (SELECT COUNT(*) FROM sales WHERE company_id = ?) as sale_count
+      `, [companyId, companyId, companyId], (err, stats) => {
+        if (err) stats = {};
+
+        res.json({
+          company,
+          owner: owner || {},
+          stats: stats || {}
+        });
+      });
+    });
+  });
+});
+
+/**
+ * PUT /api/auth/admin/companies/:id
+ * Update company details (super admin only)
+ */
+router.put('/admin/companies/:id', authenticateToken, requireSuperAdmin, (req, res) => {
+  const companyId = req.params.id;
+  const {
+    company_name,
+    trading_name,
+    vat_number,
+    registration_number,
+    contact_email,
+    contact_phone,
+    address,
+    subscription_status
+  } = req.body;
+
+  if (!company_name) {
+    return res.status(400).json({ error: 'Company name is required' });
+  }
+
+  // Build dynamic update
+  let updates = [];
+  let params = [];
+
+  updates.push('company_name = ?'); params.push(company_name);
+  updates.push('trading_name = ?'); params.push(trading_name || null);
+  updates.push('vat_number = ?'); params.push(vat_number || null);
+  updates.push('registration_number = ?'); params.push(registration_number || null);
+  updates.push('contact_email = ?'); params.push(contact_email || null);
+  updates.push('contact_phone = ?'); params.push(contact_phone || null);
+  updates.push('address = ?'); params.push(address || null);
+
+  if (subscription_status) {
+    updates.push('subscription_status = ?');
+    params.push(subscription_status);
+
+    // If activating, set approved fields
+    if (subscription_status === 'active') {
+      updates.push('approved_at = COALESCE(approved_at, CURRENT_TIMESTAMP)');
+      updates.push('approved_by_user_id = COALESCE(approved_by_user_id, ?)');
+      params.push(req.user.userId);
+    }
+  }
+
+  updates.push('updated_at = CURRENT_TIMESTAMP');
+  params.push(companyId);
+
+  db.run(
+    `UPDATE companies SET ${updates.join(', ')} WHERE id = ?`,
+    params,
+    function(err) {
+      if (err) return res.status(500).json({ error: 'Database error: ' + err.message });
+      if (this.changes === 0) return res.status(404).json({ error: 'Company not found' });
+      res.json({ message: 'Company updated successfully' });
+    }
+  );
+});
+
+/**
  * DELETE /api/auth/admin/companies/:id
  * Permanently delete a company and all associated data (super admin only)
  */
