@@ -3061,10 +3061,13 @@
             return new Promise((resolve, reject) => {
                 const tx = db.transaction('offlineSales', 'readonly');
                 const store = tx.objectStore('offlineSales');
-                const index = store.index('synced');
-                const request = index.getAll(false);
+                const request = store.getAll();
 
-                request.onsuccess = () => resolve(request.result || []);
+                request.onsuccess = () => {
+                    // Filter for unsynced sales (synced === false or synced === 0)
+                    const pending = (request.result || []).filter(sale => !sale.synced);
+                    resolve(pending);
+                };
                 request.onerror = () => reject(request.error);
             });
         }

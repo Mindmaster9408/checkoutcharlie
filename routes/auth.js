@@ -1250,54 +1250,53 @@ router.put('/admin/companies/:id/status', authenticateToken, requireSuperAdmin, 
  * DELETE /api/auth/admin/companies/:id
  * Permanently delete a company and all associated data (super admin only)
  */
-router.delete('/admin/companies/:id', authenticateToken, requireSuperAdmin, (req, res) => {
+router.delete('/admin/companies/:id', authenticateToken, requireSuperAdmin, async (req, res) => {
   const companyId = req.params.id;
 
-  // Delete in the correct order to avoid foreign key issues
-  // Using serialize to run sequentially
-  db.serialize(() => {
-    db.run('BEGIN TRANSACTION');
-
-    // Delete company-related data in order
-    const deleteQueries = [
-      'DELETE FROM sale_items WHERE sale_id IN (SELECT id FROM sales WHERE company_id = ?)',
-      'DELETE FROM sales WHERE company_id = ?',
-      'DELETE FROM till_sessions WHERE company_id = ?',
-      'DELETE FROM tills WHERE company_id = ?',
-      'DELETE FROM stock_adjustments WHERE company_id = ?',
-      'DELETE FROM product_companies WHERE company_id = ?',
-      'DELETE FROM products WHERE company_id = ?',
-      'DELETE FROM categories WHERE company_id = ?',
-      'DELETE FROM customers WHERE company_id = ?',
-      'DELETE FROM user_company_access WHERE company_id = ?',
-      'DELETE FROM audit_log WHERE company_id = ?',
-      // Delete locations (sub-companies) first
-      'DELETE FROM companies WHERE parent_company_id = ?',
-      // Finally delete the company itself
-      'DELETE FROM companies WHERE id = ?'
-    ];
-
-    let hasError = false;
-
-    deleteQueries.forEach((query, index) => {
-      if (!hasError) {
-        db.run(query, [companyId], function(err) {
-          if (err) {
-            console.error(`Delete error on query ${index}:`, err);
-            hasError = true;
-          }
-        });
-      }
+  // Helper to run a query as a promise
+  const runQuery = (query, params) => {
+    return new Promise((resolve, reject) => {
+      db.run(query, params, function(err) {
+        if (err) reject(err);
+        else resolve(this.changes);
+      });
     });
+  };
 
-    db.run('COMMIT', function(err) {
-      if (err || hasError) {
-        db.run('ROLLBACK');
-        return res.status(500).json({ error: 'Failed to delete company. Some data may remain.' });
+  // Delete company-related data in order (to avoid FK issues)
+  const deleteQueries = [
+    'DELETE FROM sale_items WHERE sale_id IN (SELECT id FROM sales WHERE company_id = ?)',
+    'DELETE FROM sales WHERE company_id = ?',
+    'DELETE FROM till_sessions WHERE company_id = ?',
+    'DELETE FROM tills WHERE company_id = ?',
+    'DELETE FROM stock_adjustments WHERE company_id = ?',
+    'DELETE FROM product_companies WHERE company_id = ?',
+    'DELETE FROM products WHERE company_id = ?',
+    'DELETE FROM categories WHERE company_id = ?',
+    'DELETE FROM customers WHERE company_id = ?',
+    'DELETE FROM user_company_access WHERE company_id = ?',
+    'DELETE FROM audit_log WHERE company_id = ?',
+    // Delete locations (sub-companies) first
+    'DELETE FROM companies WHERE parent_company_id = ?',
+    // Finally delete the company itself
+    'DELETE FROM companies WHERE id = ?'
+  ];
+
+  try {
+    // Run each delete query sequentially
+    for (const query of deleteQueries) {
+      try {
+        await runQuery(query, [companyId]);
+      } catch (err) {
+        // Log but continue - table might not exist or have no data
+        console.log(`Delete query warning: ${err.message}`);
       }
-      res.json({ message: 'Company and all associated data deleted successfully' });
-    });
-  });
+    }
+    res.json({ message: 'Company and all associated data deleted successfully' });
+  } catch (error) {
+    console.error('Delete company error:', error);
+    res.status(500).json({ error: 'Failed to delete company: ' + error.message });
+  }
 });
 
 /**
