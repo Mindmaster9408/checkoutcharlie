@@ -1372,6 +1372,34 @@
                     </table>
                 </div>
             </div>
+
+            <!-- Users Table -->
+            <div style="background: #0f3460; border-radius: 12px; overflow: hidden; margin-top: 20px;">
+                <div style="padding: 15px 20px; border-bottom: 1px solid #1a1a2e; display: flex; justify-content: space-between; align-items: center;">
+                    <h2 style="margin: 0; color: white; font-size: 18px;">All Users</h2>
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="cleanOrphanedUsers()" style="background: #ef4444; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer;">🧹 Clean Orphaned</button>
+                        <button onclick="loadAdminUsers()" style="background: #667eea; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer;">↻ Refresh</button>
+                    </div>
+                </div>
+                <div style="overflow-x: auto; max-height: 40vh; overflow-y: auto;">
+                    <table style="width: 100%; border-collapse: collapse; color: white;">
+                        <thead>
+                            <tr style="background: #16213e; position: sticky; top: 0;">
+                                <th style="padding: 12px 15px; text-align: left; font-size: 12px; text-transform: uppercase; color: #94a3b8;">User</th>
+                                <th style="padding: 12px 15px; text-align: left; font-size: 12px; text-transform: uppercase; color: #94a3b8;">Email</th>
+                                <th style="padding: 12px 15px; text-align: left; font-size: 12px; text-transform: uppercase; color: #94a3b8;">Companies</th>
+                                <th style="padding: 12px 15px; text-align: left; font-size: 12px; text-transform: uppercase; color: #94a3b8;">Type</th>
+                                <th style="padding: 12px 15px; text-align: left; font-size: 12px; text-transform: uppercase; color: #94a3b8;">Created</th>
+                                <th style="padding: 12px 15px; text-align: left; font-size: 12px; text-transform: uppercase; color: #94a3b8;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminUsersTable">
+                            <tr><td colspan="6" style="padding: 40px; text-align: center; color: #94a3b8;">Loading users...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -7996,6 +8024,7 @@
             document.getElementById('adminUserName').textContent = currentUser ? currentUser.fullName : 'Admin';
             loadAdminStats();
             loadAdminCompanies();
+            loadAdminUsers();
         }
 
         async function loadAdminStats() {
@@ -8223,6 +8252,92 @@
                 }
             } catch (e) {
                 showNotification('Failed to update company', 'error');
+            }
+        }
+
+        // ========== ADMIN USER MANAGEMENT ==========
+
+        async function loadAdminUsers() {
+            try {
+                const res = await fetch(`${API_URL}/auth/admin/users`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const users = data.users || [];
+                    const tbody = document.getElementById('adminUsersTable');
+
+                    if (users.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="6" style="padding: 40px; text-align: center; color: #94a3b8;">No users found</td></tr>';
+                        return;
+                    }
+
+                    tbody.innerHTML = users.map(u => {
+                        const isOrphaned = !u.company_count || u.company_count === 0;
+                        const rowStyle = isOrphaned ? 'background: rgba(239, 68, 68, 0.1);' : '';
+                        return `<tr style="border-bottom: 1px solid #1a1a2e; ${rowStyle}">
+                            <td style="padding: 12px 15px;">
+                                <div style="font-weight: 600;">${u.full_name || u.username}</div>
+                                <div style="font-size: 12px; color: #94a3b8;">@${u.username}</div>
+                            </td>
+                            <td style="padding: 12px 15px; font-size: 13px;">${u.email || '-'}</td>
+                            <td style="padding: 12px 15px;">
+                                ${isOrphaned ? '<span style="color: #ef4444;">None (orphaned)</span>' : `${u.company_count} company(s)`}
+                            </td>
+                            <td style="padding: 12px 15px;">
+                                ${u.is_super_admin ? '<span style="color: #fbbf24;">Super Admin</span>' : u.user_type || 'user'}
+                            </td>
+                            <td style="padding: 12px 15px; font-size: 12px; color: #94a3b8;">${u.created_at ? new Date(u.created_at).toLocaleDateString() : '-'}</td>
+                            <td style="padding: 12px 15px;">
+                                ${u.is_super_admin ? '' : `<button onclick="deleteAdminUser(${u.id}, '${(u.username || '').replace(/'/g, "\\'")}')" style="background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">Delete</button>`}
+                            </td>
+                        </tr>`;
+                    }).join('');
+                }
+            } catch (e) {
+                console.log('Users load error:', e);
+            }
+        }
+
+        async function deleteAdminUser(userId, username) {
+            if (!confirm(`Delete user "${username}"?\n\nThis will remove the user and all their company access.`)) return;
+
+            try {
+                const res = await fetch(`${API_URL}/auth/admin/users/${userId}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    showNotification(`User "${username}" deleted`, 'success');
+                    loadAdminUsers();
+                    loadAdminStats();
+                } else {
+                    const err = await res.json();
+                    showNotification(err.error || 'Failed to delete user', 'error');
+                }
+            } catch (e) {
+                showNotification('Failed to delete user', 'error');
+            }
+        }
+
+        async function cleanOrphanedUsers() {
+            if (!confirm('Delete all orphaned users?\n\nThis will remove users who have no company access.')) return;
+
+            try {
+                const res = await fetch(`${API_URL}/auth/admin/users/cleanup-orphaned`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    showNotification(`Cleaned ${data.deleted || 0} orphaned users`, 'success');
+                    loadAdminUsers();
+                } else {
+                    const err = await res.json();
+                    showNotification(err.error || 'Failed to clean users', 'error');
+                }
+            } catch (e) {
+                showNotification('Failed to clean orphaned users', 'error');
             }
         }
 

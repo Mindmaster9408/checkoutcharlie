@@ -1408,6 +1408,68 @@ router.delete('/admin/companies/:id', authenticateToken, requireSuperAdmin, asyn
 });
 
 /**
+ * GET /api/auth/admin/users
+ * List all users with company count (super admin only)
+ */
+router.get('/admin/users', authenticateToken, requireSuperAdmin, (req, res) => {
+  db.all(`
+    SELECT u.*,
+      (SELECT COUNT(*) FROM user_company_access WHERE user_id = u.id AND is_active = 1) as company_count
+    FROM users u
+    ORDER BY u.created_at DESC
+  `, [], (err, users) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    // Remove password hash from response
+    const safeUsers = (users || []).map(u => {
+      const { password_hash, ...safe } = u;
+      return safe;
+    });
+    res.json({ users: safeUsers });
+  });
+});
+
+/**
+ * DELETE /api/auth/admin/users/cleanup-orphaned
+ * Delete all users with no company access (super admin only)
+ */
+router.delete('/admin/users/cleanup-orphaned', authenticateToken, requireSuperAdmin, (req, res) => {
+  // Delete users who have no company access and are not super admins
+  db.run(`
+    DELETE FROM users
+    WHERE is_super_admin = 0
+    AND id NOT IN (SELECT DISTINCT user_id FROM user_company_access WHERE is_active = 1)
+  `, [], function(err) {
+    if (err) return res.status(500).json({ error: 'Database error: ' + err.message });
+    res.json({ message: 'Orphaned users cleaned up', deleted: this.changes });
+  });
+});
+
+/**
+ * DELETE /api/auth/admin/users/:id
+ * Delete a specific user (super admin only)
+ */
+router.delete('/admin/users/:id', authenticateToken, requireSuperAdmin, (req, res) => {
+  const userId = req.params.id;
+
+  // Check if user is a super admin
+  db.get('SELECT is_super_admin FROM users WHERE id = ?', [userId], (err, user) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.is_super_admin) return res.status(403).json({ error: 'Cannot delete super admin users' });
+
+    // Delete user's company access first, then the user
+    db.run('DELETE FROM user_company_access WHERE user_id = ?', [userId], (err) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+
+      db.run('DELETE FROM users WHERE id = ?', [userId], function(err) {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json({ message: 'User deleted successfully' });
+      });
+    });
+  });
+});
+
+/**
  * GET /api/auth/admin/stats
  * Get platform statistics (super admin only)
  */
