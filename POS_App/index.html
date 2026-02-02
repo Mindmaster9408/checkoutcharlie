@@ -3905,13 +3905,18 @@
 
             productsToShow.forEach(product => {
                 const row = document.createElement('tr');
-                row.onclick = () => editProduct(product);
                 row.innerHTML = `
-                    <td>${product.product_code}</td>
-                    <td>${product.product_name}</td>
-                    <td>${product.category || '-'}</td>
-                    <td>R ${parseFloat(product.unit_price).toFixed(2)}</td>
-                    <td>${product.stock_quantity}</td>
+                    <td onclick="editProduct(${JSON.stringify(product).replace(/"/g, '&quot;')})" style="cursor:pointer;">${product.product_code}</td>
+                    <td onclick="editProduct(${JSON.stringify(product).replace(/"/g, '&quot;')})" style="cursor:pointer;">${product.product_name}</td>
+                    <td onclick="editProduct(${JSON.stringify(product).replace(/"/g, '&quot;')})" style="cursor:pointer;">${product.category || '-'}</td>
+                    <td onclick="editProduct(${JSON.stringify(product).replace(/"/g, '&quot;')})" style="cursor:pointer;">R ${parseFloat(product.unit_price).toFixed(2)}</td>
+                    <td onclick="editProduct(${JSON.stringify(product).replace(/"/g, '&quot;')})" style="cursor:pointer;">${product.stock_quantity || product.current_stock || 0}</td>
+                    <td>
+                        <button class="btn btn-secondary" style="padding:4px 10px;font-size:11px;"
+                            onclick="event.stopPropagation(); showProductStockModal(${product.id}, '${(product.product_name || '').replace(/'/g, "\\'")}', '${product.product_code}')">
+                            Manage
+                        </button>
+                    </td>
                 `;
                 tbody.appendChild(row);
             });
@@ -7198,6 +7203,117 @@
             } catch (e) {
                 showNotification('Failed to switch company', 'error');
             }
+        }
+
+        // ========== PRODUCT STOCK MANAGEMENT (Multi-Location) ==========
+
+        let currentStockProductId = null;
+
+        async function showProductStockModal(productId, productName, productCode) {
+            currentStockProductId = productId;
+            document.getElementById('stockProductName').textContent = productName;
+            document.getElementById('stockProductCode').textContent = 'Code: ' + productCode;
+            document.getElementById('productStockModal').style.display = 'flex';
+
+            await loadProductStockByLocation(productId);
+        }
+
+        function closeProductStockModal() {
+            document.getElementById('productStockModal').style.display = 'none';
+            currentStockProductId = null;
+        }
+
+        async function loadProductStockByLocation(productId) {
+            const tbody = document.getElementById('productStockTableBody');
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;">Loading...</td></tr>';
+
+            try {
+                const res = await fetch(`${API_URL}/pos/products/${productId}/stock-by-location`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    const locations = data.locations || [];
+
+                    if (locations.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#999;padding:20px;">No locations configured. Add locations in Company Management first.</td></tr>';
+                    } else {
+                        tbody.innerHTML = locations.map(loc => `
+                            <tr data-location-id="${loc.location_id}">
+                                <td><strong>${loc.location_name}</strong></td>
+                                <td>
+                                    <input type="number" class="stock-input" data-field="stock"
+                                        value="${loc.stock_quantity || 0}" min="0"
+                                        style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                                </td>
+                                <td>
+                                    <input type="number" class="stock-input" data-field="reorder"
+                                        value="${loc.reorder_level || 10}" min="0"
+                                        style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+                                </td>
+                                <td style="text-align:center;">
+                                    <input type="checkbox" class="stock-active" ${loc.is_active ? 'checked' : ''}>
+                                </td>
+                            </tr>
+                        `).join('');
+                    }
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#c62828;padding:20px;">Failed to load stock data</td></tr>';
+                }
+            } catch (e) {
+                console.log('Error loading product stock:', e);
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#c62828;padding:20px;">Error loading stock data</td></tr>';
+            }
+        }
+
+        async function saveProductStock() {
+            if (!currentStockProductId) return;
+
+            const rows = document.querySelectorAll('#productStockTableBody tr[data-location-id]');
+            const stockData = [];
+
+            rows.forEach(row => {
+                const locationId = row.dataset.locationId;
+                const stock = row.querySelector('input[data-field="stock"]').value;
+                const reorder = row.querySelector('input[data-field="reorder"]').value;
+                const isActive = row.querySelector('.stock-active').checked;
+
+                stockData.push({
+                    location_id: parseInt(locationId),
+                    stock_quantity: parseInt(stock) || 0,
+                    reorder_level: parseInt(reorder) || 10,
+                    is_active: isActive ? 1 : 0
+                });
+            });
+
+            try {
+                const res = await fetch(`${API_URL}/pos/products/${currentStockProductId}/stock-by-location`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ stockData })
+                });
+
+                if (res.ok) {
+                    showNotification('Stock levels saved!', 'success');
+                    closeProductStockModal();
+                    loadProducts(); // Refresh products list
+                } else {
+                    const err = await res.json();
+                    showNotification(err.error || 'Failed to save stock', 'error');
+                }
+            } catch (e) {
+                showNotification('Failed to save stock', 'error');
+            }
+        }
+
+        function toggleShareAllLocations() {
+            const checked = document.getElementById('stockShareAllLocations').checked;
+            const checkboxes = document.querySelectorAll('#productStockTableBody .stock-active');
+            checkboxes.forEach(cb => cb.checked = checked);
         }
 
         function showAddCompanyModal() {

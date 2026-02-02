@@ -339,6 +339,84 @@ router.delete('/products/:id', requirePermission('PRODUCTS.DELETE'), (req, res) 
   );
 });
 
+// ========== PRODUCT STOCK BY LOCATION ==========
+
+// Get product stock across all locations
+router.get('/products/:id/stock-by-location', (req, res) => {
+  const { id } = req.params;
+  const companyId = req.user.companyId;
+
+  // First get the parent company (if current is a location)
+  db.get('SELECT * FROM companies WHERE id = ?', [companyId], (err, company) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+
+    const parentId = company.parent_company_id || companyId;
+
+    // Get all locations under this parent
+    db.all(`
+      SELECT c.id as location_id, c.location_name, c.company_name,
+        pc.stock_quantity, pc.reorder_level, pc.is_active, pc.price_override
+      FROM companies c
+      LEFT JOIN product_companies pc ON c.id = pc.company_id AND pc.product_id = ?
+      WHERE (c.id = ? OR c.parent_company_id = ?)
+        AND c.is_active = 1
+      ORDER BY c.is_location, c.location_name, c.company_name
+    `, [id, parentId, parentId], (err, locations) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+
+      // Format location names
+      const formattedLocations = (locations || []).map(loc => ({
+        ...loc,
+        location_name: loc.location_name || loc.company_name || 'Main',
+        stock_quantity: loc.stock_quantity || 0,
+        reorder_level: loc.reorder_level || 10,
+        is_active: loc.is_active !== 0
+      }));
+
+      res.json({ locations: formattedLocations });
+    });
+  });
+});
+
+// Update product stock across locations
+router.put('/products/:id/stock-by-location', requirePermission('PRODUCTS.EDIT'), (req, res) => {
+  const { id } = req.params;
+  const { stockData } = req.body;
+
+  if (!stockData || !Array.isArray(stockData)) {
+    return res.status(400).json({ error: 'Stock data is required' });
+  }
+
+  // Process each location's stock
+  const queries = stockData.map(item => {
+    return new Promise((resolve, reject) => {
+      db.run(`
+        INSERT INTO product_companies (product_id, company_id, stock_quantity, reorder_level, is_active)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(product_id, company_id) DO UPDATE SET
+          stock_quantity = ?,
+          reorder_level = ?,
+          is_active = ?
+      `, [
+        id, item.location_id, item.stock_quantity, item.reorder_level, item.is_active,
+        item.stock_quantity, item.reorder_level, item.is_active
+      ], function(err) {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  });
+
+  Promise.all(queries)
+    .then(() => {
+      res.json({ message: 'Stock levels updated successfully' });
+    })
+    .catch(err => {
+      console.error('Error saving stock:', err);
+      res.status(500).json({ error: 'Failed to save stock levels' });
+    });
+});
+
 // Create sale
 router.post('/sales', (req, res) => {
   const { tillSessionId, items, paymentMethod, customerId } = req.body;
