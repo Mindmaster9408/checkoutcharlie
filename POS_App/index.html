@@ -1352,7 +1352,7 @@
                     <h2 style="margin: 0; color: white; font-size: 18px;">All Companies</h2>
                     <button onclick="loadAdminCompanies()" style="background: #667eea; color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer;">↻ Refresh</button>
                 </div>
-                <div style="overflow-x: auto;">
+                <div style="overflow-x: auto; max-height: 60vh; overflow-y: auto;">
                     <table style="width: 100%; border-collapse: collapse; color: white;">
                         <thead>
                             <tr style="background: #16213e;">
@@ -7013,9 +7013,16 @@
                     document.getElementById('mainCompanyVat').textContent = company.vat_number || '-';
                     document.getElementById('mainCompanyDetails').textContent =
                         `${company.trading_name || ''} ${company.address ? '| ' + company.address : ''}`.trim() || '';
+                } else {
+                    // API error - try to use company name from current session
+                    const errorData = await res.json().catch(() => ({}));
+                    console.log('Company info API error:', res.status, errorData);
+                    // Fallback: use company name from companies list if available
+                    document.getElementById('mainCompanyName').textContent = currentCompanyId ? `Company #${currentCompanyId}` : 'My Company';
                 }
             } catch (e) {
                 console.log('Error loading main company:', e);
+                document.getElementById('mainCompanyName').textContent = 'My Company';
             }
         }
 
