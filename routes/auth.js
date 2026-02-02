@@ -276,6 +276,62 @@ router.post('/select-company', authenticateToken, (req, res) => {
 });
 
 /**
+ * GET /api/auth/company-info
+ * Get current company information for settings
+ */
+router.get('/company-info', authenticateToken, requireCompany, (req, res) => {
+  const companyId = req.user.companyId;
+
+  db.get(`SELECT * FROM companies WHERE id = ?`, [companyId], (err, company) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (!company) return res.status(404).json({ error: 'Company not found' });
+
+    res.json({ company });
+  });
+});
+
+/**
+ * PUT /api/auth/company-info
+ * Update company information
+ */
+router.put('/company-info', authenticateToken, requireCompany, (req, res) => {
+  const companyId = req.user.companyId;
+  const {
+    company_name,
+    trading_name,
+    vat_number,
+    registration_number,
+    contact_phone,
+    contact_email,
+    address
+  } = req.body;
+
+  // Check if user has permission to edit company settings
+  const userRole = req.user.role;
+  const allowedRoles = ['owner', 'business_owner', 'admin', 'corporate_admin', 'store_manager'];
+
+  if (!allowedRoles.includes(userRole)) {
+    return res.status(403).json({ error: 'Permission denied - only managers and admins can edit company settings' });
+  }
+
+  db.run(`UPDATE companies SET
+    company_name = COALESCE(?, company_name),
+    trading_name = ?,
+    vat_number = ?,
+    registration_number = ?,
+    contact_phone = ?,
+    contact_email = ?,
+    address = ?
+    WHERE id = ?`,
+    [company_name, trading_name, vat_number, registration_number, contact_phone, contact_email, address, companyId],
+    function(err) {
+      if (err) return res.status(500).json({ error: 'Database error', details: err.message });
+      res.json({ message: 'Company information updated' });
+    }
+  );
+});
+
+/**
  * POST /api/auth/register
  * Register a new user (via invitation or self-registration for business owners)
  */

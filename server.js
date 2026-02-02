@@ -413,17 +413,35 @@ async function initDatabase() {
     await pool.query(`CREATE TABLE IF NOT EXISTS company_settings (
       id SERIAL PRIMARY KEY,
       company_id INTEGER NOT NULL,
-      till_float_amount DECIMAL(10,2) DEFAULT 0,
+      till_float_amount DECIMAL(10,2) DEFAULT 500,
       receipt_printer_name VARCHAR(255),
       receipt_printer_ip VARCHAR(50),
-      receipt_printer_port INTEGER,
+      receipt_printer_port INTEGER DEFAULT 9100,
       auto_print_receipt INTEGER DEFAULT 1,
       receipt_header TEXT,
       receipt_footer TEXT,
+      product_code_prefix VARCHAR(10) DEFAULT 'PRO',
+      receipt_prefix VARCHAR(10) DEFAULT 'INV',
+      next_receipt_number INTEGER DEFAULT 1,
+      vat_rate DECIMAL(5,2) DEFAULT 15.00,
+      open_drawer_on_sale INTEGER DEFAULT 1,
+      group_same_items INTEGER DEFAULT 1,
+      use_product_images INTEGER DEFAULT 0,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_by_user_id INTEGER,
       UNIQUE(company_id)
     )`);
+
+    // Add new columns if they don't exist (for existing databases)
+    try {
+      await pool.query(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS product_code_prefix VARCHAR(10) DEFAULT 'PRO'`);
+      await pool.query(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS receipt_prefix VARCHAR(10) DEFAULT 'INV'`);
+      await pool.query(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS next_receipt_number INTEGER DEFAULT 1`);
+      await pool.query(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS vat_rate DECIMAL(5,2) DEFAULT 15.00`);
+      await pool.query(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS open_drawer_on_sale INTEGER DEFAULT 1`);
+      await pool.query(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS group_same_items INTEGER DEFAULT 1`);
+      await pool.query(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS use_product_images INTEGER DEFAULT 0`);
+    } catch (e) { /* columns may already exist */ }
 
     // ========== STOCK MANAGEMENT TABLES ==========
 

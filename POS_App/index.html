@@ -2098,15 +2098,99 @@
                         <div class="products-header">
                             <h3 style="margin:0;">General Settings</h3>
                         </div>
-                        <p style="color: #666; margin: 10px 0 20px; font-size: 13px;">Company-wide settings and defaults.</p>
-                        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
-                            <h4 style="margin: 0 0 15px 0;">Float Amount</h4>
-                            <div class="form-group">
-                                <label>Default Opening Float (R)</label>
-                                <input type="number" id="defaultFloatAmount" step="0.01" min="0" value="500.00" style="padding: 10px; border: 1px solid #ddd; border-radius: 6px; width: 200px;">
+                        <p style="color: #666; margin: 10px 0 20px; font-size: 13px;">Company-wide settings and defaults for this store.</p>
+
+                        <!-- Company Information -->
+                        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                            <h4 style="margin: 0 0 15px 0;">Company Information</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Company Name *</label>
+                                    <input type="text" id="settingsCompanyName" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" placeholder="e.g. ABC Trading (Pty) Ltd">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Trading Name</label>
+                                    <input type="text" id="settingsTradingName" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" placeholder="e.g. ABC Store">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">VAT Number</label>
+                                    <input type="text" id="settingsVatNumber" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" placeholder="e.g. 4123456789">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Registration Number</label>
+                                    <input type="text" id="settingsRegNumber" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" placeholder="e.g. 2020/123456/07">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Contact Phone</label>
+                                    <input type="text" id="settingsPhone" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" placeholder="e.g. 012 345 6789">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Contact Email</label>
+                                    <input type="email" id="settingsEmail" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" placeholder="e.g. info@company.co.za">
+                                </div>
+                                <div style="grid-column: span 2;">
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Address</label>
+                                    <textarea id="settingsAddress" rows="2" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" placeholder="e.g. 123 Main Street, Sandton, 2196"></textarea>
+                                </div>
                             </div>
-                            <button class="btn btn-primary" onclick="saveGeneralSettings()">Save Settings</button>
                         </div>
+
+                        <!-- Numbering Settings -->
+                        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                            <h4 style="margin: 0 0 15px 0;">Numbering Settings</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Product Code Prefix</label>
+                                    <input type="text" id="settingsProductPrefix" maxlength="5" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; text-transform: uppercase;" placeholder="e.g. PRO" value="PRO">
+                                    <div style="font-size: 11px; color: #666; margin-top: 3px;">New products will start with this prefix</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Receipt Number Prefix</label>
+                                    <input type="text" id="settingsReceiptPrefix" maxlength="5" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; text-transform: uppercase;" placeholder="e.g. INV" value="INV">
+                                    <div style="font-size: 11px; color: #666; margin-top: 3px;">Sales receipts will use this prefix</div>
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Next Receipt Number</label>
+                                    <input type="number" id="settingsNextReceiptNumber" min="1" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;" value="1">
+                                    <div style="font-size: 11px; color: #666; margin-top: 3px;">Next receipt will be this number</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Till Settings -->
+                        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                            <h4 style="margin: 0 0 15px 0;">Till Settings</h4>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Default Opening Float (R)</label>
+                                    <input type="number" id="defaultFloatAmount" step="0.01" min="0" value="500.00" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">VAT Rate (%)</label>
+                                    <input type="number" id="settingsVatRate" step="0.01" min="0" max="100" value="15" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+                                </div>
+                            </div>
+                            <div style="margin-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" id="settingsAutoPrint" checked>
+                                    Print receipt on completion of sale
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" id="settingsOpenDrawer" checked>
+                                    Open cash drawer on completion of sale
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" id="settingsGroupItems" checked>
+                                    Group same sale items
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" id="settingsShowImages">
+                                    Use product images for favourites
+                                </label>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-primary" onclick="saveGeneralSettings()" style="padding: 12px 30px;">Save All Settings</button>
                     </div>
                 </div>
             </div>
@@ -7211,16 +7295,42 @@
         }
 
         async function loadGeneralSettings() {
-            // Load float and other general settings - can be extended
             try {
-                const res = await fetch(`${API_URL}/pos/settings`, {
+                // Load company info
+                const companyRes = await fetch(`${API_URL}/auth/company-info`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.settings && data.settings.default_float_amount) {
-                        document.getElementById('defaultFloatAmount').value = data.settings.default_float_amount;
-                    }
+                if (companyRes.ok) {
+                    const companyData = await companyRes.json();
+                    const company = companyData.company || {};
+                    document.getElementById('settingsCompanyName').value = company.company_name || '';
+                    document.getElementById('settingsTradingName').value = company.trading_name || '';
+                    document.getElementById('settingsVatNumber').value = company.vat_number || '';
+                    document.getElementById('settingsRegNumber').value = company.registration_number || '';
+                    document.getElementById('settingsPhone').value = company.contact_phone || '';
+                    document.getElementById('settingsEmail').value = company.contact_email || '';
+                    document.getElementById('settingsAddress').value = company.address || '';
+                }
+
+                // Load company settings
+                const settingsRes = await fetch(`${API_URL}/pos/settings`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (settingsRes.ok) {
+                    const data = await settingsRes.json();
+                    const settings = data.settings || {};
+                    document.getElementById('defaultFloatAmount').value = settings.default_float_amount || 500;
+                    document.getElementById('settingsProductPrefix').value = settings.product_code_prefix || 'PRO';
+                    document.getElementById('settingsReceiptPrefix').value = settings.receipt_prefix || 'INV';
+                    document.getElementById('settingsNextReceiptNumber').value = settings.next_receipt_number || 1;
+                    document.getElementById('settingsVatRate').value = settings.vat_rate || 15;
+                    document.getElementById('settingsAutoPrint').checked = settings.auto_print_receipt !== 0;
+                    document.getElementById('settingsOpenDrawer').checked = settings.open_drawer_on_sale !== 0;
+                    document.getElementById('settingsGroupItems').checked = settings.group_same_items !== 0;
+                    document.getElementById('settingsShowImages').checked = settings.use_product_images === 1;
+
+                    // Update auto-print flag
+                    autoPrintEnabled = settings.auto_print_receipt !== 0;
                 }
             } catch (e) {
                 console.log('General settings load error:', e);
@@ -7228,8 +7338,54 @@
         }
 
         async function saveGeneralSettings() {
-            showNotification('General settings saved!', 'success');
-            // Can be extended to save float and other settings
+            try {
+                // Save company info
+                const companyRes = await fetch(`${API_URL}/auth/company-info`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        company_name: document.getElementById('settingsCompanyName').value.trim(),
+                        trading_name: document.getElementById('settingsTradingName').value.trim() || null,
+                        vat_number: document.getElementById('settingsVatNumber').value.trim() || null,
+                        registration_number: document.getElementById('settingsRegNumber').value.trim() || null,
+                        contact_phone: document.getElementById('settingsPhone').value.trim() || null,
+                        contact_email: document.getElementById('settingsEmail').value.trim() || null,
+                        address: document.getElementById('settingsAddress').value.trim() || null
+                    })
+                });
+
+                // Save company settings
+                const settingsRes = await fetch(`${API_URL}/pos/settings`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        default_float_amount: parseFloat(document.getElementById('defaultFloatAmount').value) || 500,
+                        product_code_prefix: document.getElementById('settingsProductPrefix').value.trim().toUpperCase() || 'PRO',
+                        receipt_prefix: document.getElementById('settingsReceiptPrefix').value.trim().toUpperCase() || 'INV',
+                        next_receipt_number: parseInt(document.getElementById('settingsNextReceiptNumber').value) || 1,
+                        vat_rate: parseFloat(document.getElementById('settingsVatRate').value) || 15,
+                        auto_print_receipt: document.getElementById('settingsAutoPrint').checked ? 1 : 0,
+                        open_drawer_on_sale: document.getElementById('settingsOpenDrawer').checked ? 1 : 0,
+                        group_same_items: document.getElementById('settingsGroupItems').checked ? 1 : 0,
+                        use_product_images: document.getElementById('settingsShowImages').checked ? 1 : 0
+                    })
+                });
+
+                if (companyRes.ok && settingsRes.ok) {
+                    showNotification('All settings saved successfully!', 'success');
+                    autoPrintEnabled = document.getElementById('settingsAutoPrint').checked;
+                } else {
+                    showNotification('Some settings may not have saved', 'error');
+                }
+            } catch (e) {
+                showNotification('Failed to save settings: ' + e.message, 'error');
+            }
         }
 
         // ========== REGISTRATION & SUPER ADMIN ==========

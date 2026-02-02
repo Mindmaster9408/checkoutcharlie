@@ -1411,13 +1411,22 @@ router.get('/settings', (req, res) => {
     }
 
     res.json({
-      till_float_amount: settings?.till_float_amount || 0,
-      receipt_printer_name: settings?.receipt_printer_name || '',
-      receipt_printer_ip: settings?.receipt_printer_ip || '',
-      receipt_printer_port: settings?.receipt_printer_port || 9100,
-      auto_print_receipt: settings?.auto_print_receipt === 1,
-      receipt_header: settings?.receipt_header || '',
-      receipt_footer: settings?.receipt_footer || ''
+      settings: {
+        default_float_amount: settings?.till_float_amount || 500,
+        receipt_printer_name: settings?.receipt_printer_name || '',
+        receipt_printer_ip: settings?.receipt_printer_ip || '',
+        receipt_printer_port: settings?.receipt_printer_port || 9100,
+        auto_print_receipt: settings?.auto_print_receipt ?? 1,
+        receipt_header: settings?.receipt_header || '',
+        receipt_footer: settings?.receipt_footer || '',
+        product_code_prefix: settings?.product_code_prefix || 'PRO',
+        receipt_prefix: settings?.receipt_prefix || 'INV',
+        next_receipt_number: settings?.next_receipt_number || 1,
+        vat_rate: settings?.vat_rate || 15,
+        open_drawer_on_sale: settings?.open_drawer_on_sale ?? 1,
+        group_same_items: settings?.group_same_items ?? 1,
+        use_product_images: settings?.use_product_images || 0
+      }
     });
   });
 });
@@ -1427,13 +1436,20 @@ router.put('/settings', requirePermission('SETTINGS.COMPANY'), (req, res) => {
   const companyId = req.user.companyId;
   const userId = req.user.userId;
   const {
-    till_float_amount,
+    default_float_amount,
     receipt_printer_name,
     receipt_printer_ip,
     receipt_printer_port,
     auto_print_receipt,
     receipt_header,
-    receipt_footer
+    receipt_footer,
+    product_code_prefix,
+    receipt_prefix,
+    next_receipt_number,
+    vat_rate,
+    open_drawer_on_sale,
+    group_same_items,
+    use_product_images
   } = req.body;
 
   // Upsert settings
@@ -1444,47 +1460,78 @@ router.put('/settings', requirePermission('SETTINGS.COMPANY'), (req, res) => {
 
     if (existing) {
       db.run(
-        `UPDATE company_settings
-         SET till_float_amount = ?, receipt_printer_name = ?, receipt_printer_ip = ?,
-             receipt_printer_port = ?, auto_print_receipt = ?, receipt_header = ?,
-             receipt_footer = ?, updated_at = CURRENT_TIMESTAMP, updated_by_user_id = ?
+        `UPDATE company_settings SET
+          till_float_amount = COALESCE(?, till_float_amount),
+          receipt_printer_name = COALESCE(?, receipt_printer_name),
+          receipt_printer_ip = COALESCE(?, receipt_printer_ip),
+          receipt_printer_port = COALESCE(?, receipt_printer_port),
+          auto_print_receipt = COALESCE(?, auto_print_receipt),
+          receipt_header = COALESCE(?, receipt_header),
+          receipt_footer = COALESCE(?, receipt_footer),
+          product_code_prefix = COALESCE(?, product_code_prefix),
+          receipt_prefix = COALESCE(?, receipt_prefix),
+          next_receipt_number = COALESCE(?, next_receipt_number),
+          vat_rate = COALESCE(?, vat_rate),
+          open_drawer_on_sale = COALESCE(?, open_drawer_on_sale),
+          group_same_items = COALESCE(?, group_same_items),
+          use_product_images = COALESCE(?, use_product_images),
+          updated_at = CURRENT_TIMESTAMP,
+          updated_by_user_id = ?
          WHERE company_id = ?`,
         [
-          till_float_amount || 0,
-          receipt_printer_name || null,
-          receipt_printer_ip || null,
-          receipt_printer_port || 9100,
-          auto_print_receipt ? 1 : 0,
-          receipt_header || null,
-          receipt_footer || null,
+          default_float_amount,
+          receipt_printer_name,
+          receipt_printer_ip,
+          receipt_printer_port,
+          auto_print_receipt,
+          receipt_header,
+          receipt_footer,
+          product_code_prefix,
+          receipt_prefix,
+          next_receipt_number,
+          vat_rate,
+          open_drawer_on_sale,
+          group_same_items,
+          use_product_images,
           userId,
           companyId
         ],
         (err) => {
           if (err) {
-            return res.status(500).json({ error: 'Failed to update settings' });
+            return res.status(500).json({ error: 'Failed to update settings', details: err.message });
           }
           res.json({ success: true, message: 'Settings updated' });
         }
       );
     } else {
       db.run(
-        `INSERT INTO company_settings (company_id, till_float_amount, receipt_printer_name, receipt_printer_ip, receipt_printer_port, auto_print_receipt, receipt_header, receipt_footer, updated_by_user_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO company_settings (
+          company_id, till_float_amount, receipt_printer_name, receipt_printer_ip,
+          receipt_printer_port, auto_print_receipt, receipt_header, receipt_footer,
+          product_code_prefix, receipt_prefix, next_receipt_number, vat_rate,
+          open_drawer_on_sale, group_same_items, use_product_images, updated_by_user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           companyId,
-          till_float_amount || 0,
+          default_float_amount || 500,
           receipt_printer_name || null,
           receipt_printer_ip || null,
           receipt_printer_port || 9100,
-          auto_print_receipt ? 1 : 0,
+          auto_print_receipt ?? 1,
           receipt_header || null,
           receipt_footer || null,
+          product_code_prefix || 'PRO',
+          receipt_prefix || 'INV',
+          next_receipt_number || 1,
+          vat_rate || 15,
+          open_drawer_on_sale ?? 1,
+          group_same_items ?? 1,
+          use_product_images || 0,
           userId
         ],
         (err) => {
           if (err) {
-            return res.status(500).json({ error: 'Failed to create settings' });
+            return res.status(500).json({ error: 'Failed to create settings', details: err.message });
           }
           res.json({ success: true, message: 'Settings created' });
         }
