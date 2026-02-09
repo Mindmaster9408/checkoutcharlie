@@ -339,18 +339,26 @@
         }
         .payment-methods {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-bottom: 15px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            margin-bottom: 10px;
         }
         .payment-btn {
-            padding: 15px;
+            padding: 8px 4px;
             border: 2px solid #e0e0e0;
             background: white;
-            border-radius: 10px;
+            border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
             transition: all 0.2s;
+            font-size: 11px;
+            text-align: center;
+            line-height: 1.2;
+        }
+        .payment-btn .pay-icon {
+            display: block;
+            font-size: 18px;
+            margin-bottom: 2px;
         }
         .payment-btn:hover {
             border-color: #667eea;
@@ -1566,26 +1574,52 @@
 
                     <div class="checkout-section">
                         <div class="payment-methods">
-                            <button class="payment-btn selected" onclick="selectPayment('CASH')">💵 Cash</button>
-                            <button class="payment-btn" onclick="selectPayment('CARD')">💳 Card</button>
-                            <button class="payment-btn" onclick="selectPayment('ACCOUNT')">👤 Account</button>
-                            <button class="payment-btn" onclick="toggleSplitPayment()" id="splitPaymentBtn">✂️ Split</button>
+                            <button class="payment-btn selected" onclick="selectPayment('CASH', this)"><span class="pay-icon">💵</span>Cash</button>
+                            <button class="payment-btn" onclick="selectPayment('CARD', this)"><span class="pay-icon">💳</span>Card</button>
+                            <button class="payment-btn" onclick="selectPayment('EFT', this)"><span class="pay-icon">🏦</span>EFT</button>
+                            <button class="payment-btn" onclick="selectPayment('ACCOUNT', this)"><span class="pay-icon">👤</span>Account</button>
+                            <button class="payment-btn" onclick="selectPayment('SNAPSCAN', this)"><span class="pay-icon">📱</span>SnapScan</button>
+                            <button class="payment-btn" onclick="selectPayment('ZAPPER', this)"><span class="pay-icon">⚡</span>Zapper</button>
+                            <button class="payment-btn" onclick="selectPayment('GIFT_CARD', this)"><span class="pay-icon">🎁</span>Gift Card</button>
+                            <button class="payment-btn" onclick="toggleSplitPayment()" id="splitPaymentBtn"><span class="pay-icon">✂️</span>Split</button>
                         </div>
 
                         <!-- Split Payment Section -->
                         <div id="splitPaymentSection" class="split-payment-section">
-                            <div class="split-payment-row">
-                                <label>💵 Cash:</label>
-                                <input type="number" id="splitCashAmount" step="0.01" min="0" value="0" oninput="updateSplitRemaining()">
-                                <span></span>
-                            </div>
-                            <div class="split-payment-row">
-                                <label>💳 Card:</label>
-                                <input type="number" id="splitCardAmount" step="0.01" min="0" value="0" oninput="updateSplitRemaining()">
-                                <span></span>
+                            <div style="font-weight:600;margin-bottom:10px;color:#333;">Split Payment Allocation</div>
+                            <div id="splitPaymentRows">
+                                <div class="split-payment-row">
+                                    <label>💵 Cash:</label>
+                                    <input type="number" class="split-amount" data-method="CASH" step="0.01" min="0" value="0" oninput="updateSplitRemaining()">
+                                </div>
+                                <div class="split-payment-row">
+                                    <label>💳 Card:</label>
+                                    <input type="number" class="split-amount" data-method="CARD" step="0.01" min="0" value="0" oninput="updateSplitRemaining()">
+                                </div>
+                                <div class="split-payment-row">
+                                    <label>🏦 EFT:</label>
+                                    <input type="number" class="split-amount" data-method="EFT" step="0.01" min="0" value="0" oninput="updateSplitRemaining()">
+                                </div>
+                                <div class="split-payment-row">
+                                    <label>📱 SnapScan:</label>
+                                    <input type="number" class="split-amount" data-method="SNAPSCAN" step="0.01" min="0" value="0" oninput="updateSplitRemaining()">
+                                </div>
                             </div>
                             <div class="split-remaining">
                                 Remaining: <span id="splitRemainingAmount">R 0.00</span>
+                            </div>
+                        </div>
+
+                        <!-- Account Customer Selection (shown when ACCOUNT selected) -->
+                        <div id="accountCustomerSection" style="display:none; background:#f0f4ff; padding:12px; border-radius:8px; margin-bottom:10px;">
+                            <label style="font-weight:600;display:block;margin-bottom:5px;">Select Account Customer</label>
+                            <div style="display:flex;gap:8px;">
+                                <input type="text" id="accountCustomerSearch" placeholder="Search by name or phone..." style="flex:1;padding:8px;border:1px solid #ddd;border-radius:6px;" oninput="searchAccountCustomers(this.value)">
+                            </div>
+                            <div id="accountCustomerResults" style="max-height:120px;overflow-y:auto;margin-top:8px;"></div>
+                            <div id="selectedAccountCustomer" style="display:none;margin-top:8px;padding:8px;background:white;border-radius:6px;border:2px solid #667eea;">
+                                <span id="selectedAccountName" style="font-weight:600;"></span>
+                                <span id="selectedAccountBalance" style="float:right;color:#666;font-size:13px;"></span>
                             </div>
                         </div>
 
@@ -1790,6 +1824,9 @@
                     <div class="settings-menu-item" onclick="showReport('gross-profit-by-product', event)">Gross Profit by Product</div>
                     <div class="settings-menu-item" onclick="showReport('daily-summary', event)">Sales Daily Summary</div>
                     <div class="settings-menu-item" onclick="showReport('audit-trail', event)">Sales Audit Trail</div>
+                    <div class="settings-menu-item" onclick="showReport('forensic-audit', event)">Forensic Audit Log</div>
+                    <div class="settings-menu-item" onclick="showReport('payment-methods', event)">Payment Methods</div>
+                    <div class="settings-menu-item" onclick="showReport('suspicious-activity', event)">Suspicious Activity</div>
                     
                     <h3 style="padding: 15px 15px 10px; border-top: 1px solid #ddd; margin: 10px 0 0; color: #667eea;">VAT Reports</h3>
                     <div class="settings-menu-item" onclick="showReport('vat-detail', event)">VAT Detail</div>
@@ -2195,10 +2232,11 @@
                                 <thead>
                                     <tr>
                                         <th>Name</th>
-                                        <th>Contact Number</th>
+                                        <th>Phone</th>
                                         <th>Email</th>
-                                        <th>Company</th>
-                                        <th>Type</th>
+                                        <th>Group</th>
+                                        <th>Loyalty</th>
+                                        <th>Balance</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
@@ -2497,31 +2535,85 @@
 
     <!-- Add/Edit Customer Modal -->
     <div id="customerModal" class="modal-overlay">
-        <div class="modal">
+        <div class="modal" style="max-width:650px;">
             <div class="modal-header">
-                <h2>Add Customer</h2>
+                <h2 id="customerModalTitle">Add Customer</h2>
                 <button class="modal-close" onclick="closeCustomerModal()">&times;</button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" style="max-height:65vh;overflow-y:auto;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>First Name</label>
+                        <input type="text" id="customerFirstName" placeholder="First name">
+                    </div>
+                    <div class="form-group">
+                        <label>Last Name</label>
+                        <input type="text" id="customerLastName" placeholder="Last name">
+                    </div>
+                </div>
+
                 <div class="form-group">
-                    <label>Name <span class="required">*</span></label>
-                    <input type="text" id="customerName" required>
+                    <label>Display Name / Company <span class="required">*</span></label>
+                    <input type="text" id="customerName" required placeholder="e.g. John Smith or ABC Trading">
                     <div class="error-text" id="nameError" style="display: none;">This field is required</div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Phone</label>
+                        <input type="tel" id="customerPhone" placeholder="e.g. 082 123 4567">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="customerEmail" placeholder="email@example.com">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>ID Number</label>
+                        <input type="text" id="customerIdNumber" placeholder="SA ID number" maxlength="13">
+                    </div>
+                    <div class="form-group">
+                        <label>Date of Birth</label>
+                        <input type="date" id="customerDOB">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Customer Group</label>
+                        <select id="customerGroup">
+                            <option value="general">General</option>
+                            <option value="wholesale">Wholesale</option>
+                            <option value="vip">VIP</option>
+                            <option value="staff">Staff</option>
+                            <option value="trade">Trade</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Customer Type</label>
+                        <select id="customerType">
+                            <option value="Cash Sale Customer">Cash Sale Customer</option>
+                            <option value="Account Customer">Account Customer</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Credit Limit (R)</label>
+                    <input type="number" id="customerCreditLimit" step="0.01" min="0" value="0" placeholder="0.00">
+                    <div style="font-size:11px;color:#666;margin-top:3px;">Set to 0 for no credit. Only applies to Account Customers.</div>
                 </div>
 
                 <div class="form-group">
                     <label>Contact Person</label>
-                    <input type="text" id="customerContactPerson">
+                    <input type="text" id="customerContactPerson" placeholder="Contact person name">
                 </div>
 
                 <div class="form-group">
                     <label>Contact Number</label>
-                    <input type="tel" id="customerContactNumber">
-                </div>
-
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" id="customerEmail">
+                    <input type="tel" id="customerContactNumber" placeholder="Alternative contact number">
                 </div>
 
                 <div class="form-group">
@@ -2567,11 +2659,8 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Customer Type</label>
-                    <select id="customerType">
-                        <option value="Cash Sale Customer">Cash Sale Customer</option>
-                        <option value="Account Customer">Account Customer</option>
-                    </select>
+                    <label>Notes</label>
+                    <textarea id="customerNotes" rows="2" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;" placeholder="Internal notes about this customer..."></textarea>
                 </div>
 
                 <div class="form-group">
@@ -2579,11 +2668,19 @@
                     <input type="text" id="customerCustomField">
                 </div>
 
-                <div class="form-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="customerActive" checked>
-                        Active Customer
-                    </label>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="customerActive" checked>
+                            Active Customer
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="customerMarketingConsent">
+                            Marketing Consent
+                        </label>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -4187,6 +4284,11 @@
             document.getElementById('vat').textContent = `R ${vat.toFixed(2)}`;
             document.getElementById('total').textContent = `R ${total.toFixed(2)}`;
             document.getElementById('cartItemCount').textContent = `${cart.length} items`;
+
+            // Update split payment remaining if active
+            if (splitPaymentMode) {
+                updateSplitRemaining();
+            }
         }
 
         function updateQty(productId, change) {
@@ -4215,12 +4317,68 @@
             }
         }
 
-        function selectPayment(method) {
+        let selectedAccountCustomerId = null;
+
+        function selectPayment(method, btnEl) {
             selectedPayment = method;
-            document.querySelectorAll('.payment-btn').forEach(btn => {
+            document.querySelectorAll('.payment-btn:not(#splitPaymentBtn)').forEach(btn => {
                 btn.classList.remove('selected');
             });
-            event.target.classList.add('selected');
+            if (btnEl) btnEl.classList.add('selected');
+
+            // Close split payment if open
+            if (splitPaymentMode) {
+                splitPaymentMode = false;
+                document.getElementById('splitPaymentSection').classList.remove('active');
+                document.getElementById('splitPaymentBtn').classList.remove('selected');
+            }
+
+            // Show/hide account customer selector
+            const accountSection = document.getElementById('accountCustomerSection');
+            if (method === 'ACCOUNT') {
+                accountSection.style.display = 'block';
+            } else {
+                accountSection.style.display = 'none';
+                selectedAccountCustomerId = null;
+            }
+        }
+
+        async function searchAccountCustomers(query) {
+            if (!query || query.length < 2) {
+                document.getElementById('accountCustomerResults').innerHTML = '';
+                return;
+            }
+            try {
+                const res = await fetch(`${API_URL}/customers/search?q=${encodeURIComponent(query)}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                const customers = data.customers || [];
+                const container = document.getElementById('accountCustomerResults');
+                if (customers.length === 0) {
+                    container.innerHTML = '<div style="padding:8px;color:#999;font-size:13px;">No customers found</div>';
+                    return;
+                }
+                container.innerHTML = customers.slice(0, 5).map(c => `
+                    <div onclick="selectAccountCustomer(${c.id}, '${(c.name || '').replace(/'/g, "\\'")}', ${c.current_balance || 0}, ${c.credit_limit || 0})"
+                         style="padding:8px 10px;cursor:pointer;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;font-size:13px;"
+                         onmouseover="this.style.background='#f0f4ff'" onmouseout="this.style.background='transparent'">
+                        <div><strong>${c.name}</strong> ${c.phone ? '(' + c.phone + ')' : ''}</div>
+                        <div style="color:#666;">Bal: R ${parseFloat(c.current_balance || 0).toFixed(2)} / R ${parseFloat(c.credit_limit || 0).toFixed(2)}</div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error('Error searching account customers:', e);
+            }
+        }
+
+        function selectAccountCustomer(id, name, balance, limit) {
+            selectedAccountCustomerId = id;
+            document.getElementById('accountCustomerResults').innerHTML = '';
+            document.getElementById('accountCustomerSearch').value = '';
+            document.getElementById('selectedAccountCustomer').style.display = 'block';
+            document.getElementById('selectedAccountName').textContent = name;
+            document.getElementById('selectedAccountBalance').textContent = `Balance: R ${parseFloat(balance).toFixed(2)} / Limit: R ${parseFloat(limit).toFixed(2)}`;
         }
 
         let lastSaleId = null;
@@ -4297,7 +4455,8 @@
                             productId: item.productId,
                             quantity: item.quantity
                         })),
-                        paymentMethod: selectedPayment
+                        paymentMethod: selectedPayment,
+                        customerId: selectedAccountCustomerId || undefined
                     })
                 });
 
@@ -4374,24 +4533,45 @@
             modal.id = 'saleCompleteModal';
             modal.style.display = 'flex';
             modal.innerHTML = `
-                <div class="modal" style="max-width: 400px;">
+                <div class="modal" style="max-width: 450px;">
                     <div class="modal-header" style="background: #10b981; color: white;">
                         <h2 style="margin: 0;">Sale Complete!</h2>
                         <button class="close-btn" onclick="closeSaleCompleteModal()" style="color: white;">&times;</button>
                     </div>
-                    <div class="modal-body" style="text-align: center; padding: 30px;">
-                        <div style="font-size: 48px; margin-bottom: 10px;">✓</div>
+                    <div class="modal-body" style="text-align: center; padding: 25px;">
+                        <div style="font-size: 48px; margin-bottom: 10px;">&#10003;</div>
                         <div style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">#${sale.saleNumber}</div>
-                        <div style="font-size: 32px; font-weight: bold; color: #10b981; margin-bottom: 20px;">R ${sale.totalAmount.toFixed(2)}</div>
+                        <div style="font-size: 32px; font-weight: bold; color: #10b981; margin-bottom: 15px;">R ${sale.totalAmount.toFixed(2)}</div>
                         <div style="color: #666; margin-bottom: 20px;">Payment: ${selectedPayment}</div>
-                        <div style="display: flex; gap: 10px; justify-content: center;">
-                            <button class="btn btn-primary" onclick="printReceipt(${sale.saleId})" style="padding: 15px 30px; font-size: 16px;">
-                                🖨️ Print Receipt
-                            </button>
-                            <button class="btn btn-secondary" onclick="closeSaleCompleteModal()" style="padding: 15px 30px; font-size: 16px;">
-                                Done
-                            </button>
+                        
+                        <div style="background:#f8f9fa;border-radius:10px;padding:15px;text-align:left;margin-bottom:15px;">
+                            <div style="font-weight:600;margin-bottom:10px;color:#333;">Send Receipt</div>
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                                <button class="btn btn-primary" onclick="deliverReceipt(${sale.saleId}, 'print')" style="padding:10px;font-size:13px;">
+                                    &#128424; Print
+                                </button>
+                                <button class="btn btn-secondary" onclick="showEmailReceiptInput(${sale.saleId})" style="padding:10px;font-size:13px;">
+                                    &#9993; Email
+                                </button>
+                                <button class="btn btn-secondary" onclick="showSmsReceiptInput(${sale.saleId})" style="padding:10px;font-size:13px;">
+                                    &#128172; SMS
+                                </button>
+                                <button class="btn btn-secondary" onclick="showWhatsAppReceiptInput(${sale.saleId})" style="padding:10px;font-size:13px;">
+                                    &#128242; WhatsApp
+                                </button>
+                            </div>
+                            <div id="receiptDeliveryInput" style="margin-top:10px;display:none;">
+                                <div style="display:flex;gap:8px;">
+                                    <input type="text" id="receiptDeliveryValue" placeholder="" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:6px;">
+                                    <button class="btn btn-primary" onclick="sendReceiptDelivery(${sale.saleId})" style="padding:8px 15px;">Send</button>
+                                </div>
+                            </div>
+                            <div id="receiptDeliveryStatus" style="margin-top:8px;font-size:12px;"></div>
                         </div>
+
+                        <button class="btn btn-secondary" onclick="closeSaleCompleteModal()" style="padding: 12px 30px; font-size: 16px; width:100%;">
+                            Done
+                        </button>
                     </div>
                 </div>
             `;
@@ -5073,9 +5253,24 @@
                 return;
             }
 
+            const container = document.getElementById('reportContainer');
+
+            // Handle custom reports that don't go through /reports/ endpoint
+            if (currentReport === 'forensic-audit') {
+                loadForensicAuditReport(container);
+                return;
+            }
+            if (currentReport === 'payment-methods') {
+                loadPaymentMethodsReport(container);
+                return;
+            }
+            if (currentReport === 'suspicious-activity') {
+                loadSuspiciousActivityReport(container);
+                return;
+            }
+
             const startDate = document.getElementById('reportStartDate').value;
             const endDate = document.getElementById('reportEndDate').value;
-            const container = document.getElementById('reportContainer');
 
             container.innerHTML = '<p style="text-align: center; color: #999;">Loading report...</p>';
 
@@ -5738,21 +5933,27 @@
             document.getElementById('customerCount').textContent = `${customers.length} Customers`;
 
             if (customers.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #999;">No customers found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 20px; color: #999;">No customers found</td></tr>';
                 return;
             }
 
             customers.forEach(customer => {
                 const row = document.createElement('tr');
+                const loyaltyPoints = customer.loyalty_points || 0;
+                const tier = customer.loyalty_tier || 'bronze';
+                const balance = parseFloat(customer.current_balance || 0);
+                const tierColor = { bronze: '#cd7f32', silver: '#c0c0c0', gold: '#ffd700', platinum: '#e5e4e2' }[tier] || '#cd7f32';
                 row.innerHTML = `
-                    <td>${customer.name}</td>
-                    <td>${customer.contact_number || '-'}</td>
+                    <td><strong>${customer.name}</strong>${customer.customer_number ? '<br><span style="font-size:11px;color:#999;">' + customer.customer_number + '</span>' : ''}</td>
+                    <td>${customer.phone || customer.contact_number || '-'}</td>
                     <td>${customer.email || '-'}</td>
-                    <td>${customer.company || '-'}</td>
-                    <td>${customer.customer_type || 'Cash Sale Customer'}</td>
+                    <td>${customer.customer_group || 'general'}</td>
+                    <td><span style="color:${tierColor};font-weight:600;">${loyaltyPoints}</span> <span style="font-size:10px;color:#999;">${tier}</span></td>
+                    <td style="color:${balance > 0 ? '#dc3545' : '#2e7d32'};font-weight:600;">R ${balance.toFixed(2)}</td>
                     <td>
+                        <button class="btn btn-sm btn-primary" onclick="showCustomerDetail(${customer.id})" style="margin-right:4px;">View</button>
                         <button class="btn btn-sm btn-secondary" onclick="editCustomer(${customer.id})">Edit</button>
-                        <button class="btn btn-sm btn-danger" onclick="deleteCustomer(${customer.id})">Delete</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteCustomer(${customer.id})">Del</button>
                     </td>
                 `;
                 tbody.appendChild(row);
@@ -5761,10 +5962,18 @@
 
         function showAddCustomer() {
             currentCustomerId = null;
+            document.getElementById('customerModalTitle').textContent = 'Add Customer';
+            document.getElementById('customerFirstName').value = '';
+            document.getElementById('customerLastName').value = '';
             document.getElementById('customerName').value = '';
+            document.getElementById('customerPhone').value = '';
             document.getElementById('customerContactPerson').value = '';
             document.getElementById('customerContactNumber').value = '';
             document.getElementById('customerEmail').value = '';
+            document.getElementById('customerIdNumber').value = '';
+            document.getElementById('customerDOB').value = '';
+            document.getElementById('customerGroup').value = 'general';
+            document.getElementById('customerCreditLimit').value = '0';
             document.getElementById('customerAddress1').value = '';
             document.getElementById('customerAddress2').value = '';
             document.getElementById('customerSuburb').value = '';
@@ -5775,7 +5984,9 @@
             document.getElementById('customerCompany').value = '';
             document.getElementById('customerType').value = 'Cash Sale Customer';
             document.getElementById('customerCustomField').value = '';
+            document.getElementById('customerNotes').value = '';
             document.getElementById('customerActive').checked = true;
+            document.getElementById('customerMarketingConsent').checked = false;
 
             document.getElementById('customerModal').style.display = 'flex';
         }
@@ -5790,10 +6001,18 @@
                 const customer = result.customer;
 
                 currentCustomerId = id;
-                document.getElementById('customerName').value = customer.name;
+                document.getElementById('customerModalTitle').textContent = 'Edit Customer';
+                document.getElementById('customerFirstName').value = customer.first_name || '';
+                document.getElementById('customerLastName').value = customer.last_name || '';
+                document.getElementById('customerName').value = customer.name || '';
+                document.getElementById('customerPhone').value = customer.phone || '';
                 document.getElementById('customerContactPerson').value = customer.contact_person || '';
                 document.getElementById('customerContactNumber').value = customer.contact_number || '';
                 document.getElementById('customerEmail').value = customer.email || '';
+                document.getElementById('customerIdNumber').value = customer.id_number || '';
+                document.getElementById('customerDOB').value = customer.date_of_birth || '';
+                document.getElementById('customerGroup').value = customer.customer_group || 'general';
+                document.getElementById('customerCreditLimit').value = customer.credit_limit || 0;
                 document.getElementById('customerAddress1').value = customer.address_line_1 || '';
                 document.getElementById('customerAddress2').value = customer.address_line_2 || '';
                 document.getElementById('customerSuburb').value = customer.suburb || '';
@@ -5804,7 +6023,9 @@
                 document.getElementById('customerCompany').value = customer.company || '';
                 document.getElementById('customerType').value = customer.customer_type || 'Cash Sale Customer';
                 document.getElementById('customerCustomField').value = customer.custom_field || '';
-                document.getElementById('customerActive').checked = customer.is_active === 1;
+                document.getElementById('customerNotes').value = customer.notes || '';
+                document.getElementById('customerActive').checked = customer.is_active === 1 || customer.is_active === true;
+                document.getElementById('customerMarketingConsent').checked = customer.marketing_consent === 1 || customer.marketing_consent === true;
 
                 document.getElementById('customerModal').style.display = 'flex';
             } catch (error) {
@@ -5828,9 +6049,16 @@
 
             const customerData = {
                 name,
+                first_name: document.getElementById('customerFirstName').value.trim(),
+                last_name: document.getElementById('customerLastName').value.trim(),
+                phone: document.getElementById('customerPhone').value.trim(),
                 contact_person: document.getElementById('customerContactPerson').value,
                 contact_number: document.getElementById('customerContactNumber').value,
                 email: document.getElementById('customerEmail').value,
+                id_number: document.getElementById('customerIdNumber').value.trim(),
+                date_of_birth: document.getElementById('customerDOB').value || null,
+                customer_group: document.getElementById('customerGroup').value,
+                credit_limit: parseFloat(document.getElementById('customerCreditLimit').value) || 0,
                 address_line_1: document.getElementById('customerAddress1').value,
                 address_line_2: document.getElementById('customerAddress2').value,
                 suburb: document.getElementById('customerSuburb').value,
@@ -5841,7 +6069,9 @@
                 company: document.getElementById('customerCompany').value,
                 customer_type: document.getElementById('customerType').value,
                 custom_field: document.getElementById('customerCustomField').value,
-                is_active: document.getElementById('customerActive').checked
+                notes: document.getElementById('customerNotes').value.trim(),
+                is_active: document.getElementById('customerActive').checked,
+                marketing_consent: document.getElementById('customerMarketingConsent').checked
             };
 
             try {
@@ -5965,23 +6195,28 @@
                 btn.classList.add('selected');
                 // Deselect other payment buttons
                 document.querySelectorAll('.payment-btn:not(#splitPaymentBtn)').forEach(b => b.classList.remove('selected'));
+                // Hide account customer section
+                document.getElementById('accountCustomerSection').style.display = 'none';
+                selectedAccountCustomerId = null;
                 updateSplitRemaining();
             } else {
                 section.classList.remove('active');
                 btn.classList.remove('selected');
-                document.getElementById('splitCashAmount').value = '0';
-                document.getElementById('splitCardAmount').value = '0';
+                // Reset all split amounts
+                document.querySelectorAll('.split-amount').forEach(input => input.value = '0');
             }
         }
 
         function updateSplitRemaining() {
             const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 1.15;
-            const cash = parseFloat(document.getElementById('splitCashAmount').value) || 0;
-            const card = parseFloat(document.getElementById('splitCardAmount').value) || 0;
-            const remaining = total - cash - card;
+            let allocated = 0;
+            document.querySelectorAll('.split-amount').forEach(input => {
+                allocated += parseFloat(input.value) || 0;
+            });
+            const remaining = total - allocated;
 
             document.getElementById('splitRemainingAmount').textContent = `R ${remaining.toFixed(2)}`;
-            document.getElementById('splitRemainingAmount').style.color = remaining <= 0.01 ? '#4caf50' : '#dc3545';
+            document.getElementById('splitRemainingAmount').style.color = Math.abs(remaining) <= 0.01 ? '#4caf50' : '#dc3545';
         }
 
         // ========== STOCK MANAGEMENT FUNCTIONS ==========
@@ -6239,6 +6474,16 @@
                         <div>VAT: R ${parseFloat(result.sale.vat_amount).toFixed(2)}</div>
                         <div style="font-size: 18px; font-weight: bold; color: #667eea;">Total: R ${parseFloat(result.sale.total_amount).toFixed(2)}</div>
                     </div>
+                    ${result.sale.voided_at ? `
+                        <div style="margin-top:15px;background:#ffebee;padding:10px;border-radius:8px;color:#c62828;">
+                            <strong>VOIDED</strong> - ${result.sale.void_reason || 'No reason given'}<br>
+                            <span style="font-size:12px;">Voided at: ${new Date(result.sale.voided_at).toLocaleString('en-ZA')}</span>
+                        </div>
+                    ` : `
+                        <div style="margin-top:15px;display:flex;gap:8px;justify-content:flex-end;">
+                            <button class="btn btn-danger" onclick="voidSale(${result.sale.id}); closeSaleDetail();" style="padding:8px 15px;font-size:13px;">Void Sale</button>
+                        </div>
+                    `}
                 `;
 
                 closeSaleSearch();
@@ -6559,28 +6804,37 @@
                 return;
             }
 
-            let payload;
+            // Account payment - must select customer
+            if (selectedPayment === 'ACCOUNT' && !splitPaymentMode && !selectedAccountCustomerId) {
+                showNotification('Please select an account customer first', 'error');
+                return;
+            }
 
             if (splitPaymentMode) {
-                const cashAmount = parseFloat(document.getElementById('splitCashAmount').value) || 0;
-                const cardAmount = parseFloat(document.getElementById('splitCardAmount').value) || 0;
-                const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 1.15;
+                // Gather all split amounts
+                const payments = [];
+                document.querySelectorAll('.split-amount').forEach(input => {
+                    const amount = parseFloat(input.value) || 0;
+                    if (amount > 0) {
+                        payments.push({ method: input.dataset.method, amount });
+                    }
+                });
 
-                if (Math.abs(cashAmount + cardAmount - total) > 0.01) {
+                const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0) * 1.15;
+                const allocated = payments.reduce((sum, p) => sum + p.amount, 0);
+
+                if (Math.abs(allocated - total) > 0.01) {
                     showNotification('Split payment amounts must equal total', 'error');
                     return;
                 }
 
-                payload = {
+                const payload = {
                     tillSessionId: currentSession.id,
                     items: cart.map(item => ({
                         productId: item.productId,
                         quantity: item.quantity
                     })),
-                    payments: [
-                        { method: 'CASH', amount: cashAmount },
-                        { method: 'CARD', amount: cardAmount }
-                    ].filter(p => p.amount > 0)
+                    payments
                 };
 
                 try {
@@ -6596,7 +6850,8 @@
                     const result = await response.json();
 
                     if (response.ok) {
-                        showNotification(`Sale completed! #${result.saleNumber}`, 'success');
+                        lastSaleId = result.saleId;
+                        showSaleCompleteModal(result);
                         cart = [];
                         updateCart();
                         toggleSplitPayment();
@@ -8456,6 +8711,613 @@
 
         let currentCompanyId = null;
         let currentCompanyName = null;
+
+        // ========== RECEIPT DELIVERY FUNCTIONS ==========
+
+        let receiptDeliveryMethod = null;
+
+        async function deliverReceipt(saleId, method) {
+            if (method === 'print') {
+                printReceipt(saleId);
+                return;
+            }
+            try {
+                const res = await fetch(`${API_URL}/receipts/deliver/${saleId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ methods: [method] })
+                });
+                const result = await res.json();
+                if (res.ok) {
+                    showNotification(`Receipt ${method} delivery initiated`, 'success');
+                } else {
+                    showNotification(result.error || 'Delivery failed', 'error');
+                }
+            } catch (e) {
+                showNotification('Receipt delivery failed', 'error');
+            }
+        }
+
+        function showEmailReceiptInput(saleId) {
+            receiptDeliveryMethod = 'email';
+            const inputDiv = document.getElementById('receiptDeliveryInput');
+            inputDiv.style.display = 'block';
+            document.getElementById('receiptDeliveryValue').placeholder = 'Enter email address...';
+            document.getElementById('receiptDeliveryValue').type = 'email';
+            document.getElementById('receiptDeliveryValue').value = '';
+            inputDiv.dataset.saleId = saleId;
+        }
+
+        function showSmsReceiptInput(saleId) {
+            receiptDeliveryMethod = 'sms';
+            const inputDiv = document.getElementById('receiptDeliveryInput');
+            inputDiv.style.display = 'block';
+            document.getElementById('receiptDeliveryValue').placeholder = 'Enter phone number (e.g. 0821234567)...';
+            document.getElementById('receiptDeliveryValue').type = 'tel';
+            document.getElementById('receiptDeliveryValue').value = '';
+            inputDiv.dataset.saleId = saleId;
+        }
+
+        function showWhatsAppReceiptInput(saleId) {
+            receiptDeliveryMethod = 'whatsapp';
+            const inputDiv = document.getElementById('receiptDeliveryInput');
+            inputDiv.style.display = 'block';
+            document.getElementById('receiptDeliveryValue').placeholder = 'Enter WhatsApp number...';
+            document.getElementById('receiptDeliveryValue').type = 'tel';
+            document.getElementById('receiptDeliveryValue').value = '';
+            inputDiv.dataset.saleId = saleId;
+        }
+
+        async function sendReceiptDelivery(saleId) {
+            const value = document.getElementById('receiptDeliveryValue').value.trim();
+            if (!value) {
+                showNotification('Please enter a valid destination', 'error');
+                return;
+            }
+
+            const statusDiv = document.getElementById('receiptDeliveryStatus');
+            statusDiv.innerHTML = '<span style="color:#667eea;">Sending...</span>';
+
+            try {
+                const body = { methods: [receiptDeliveryMethod] };
+                if (receiptDeliveryMethod === 'email') body.email = value;
+                if (receiptDeliveryMethod === 'sms') body.phone = value;
+                if (receiptDeliveryMethod === 'whatsapp') body.phone = value;
+
+                const res = await fetch(`${API_URL}/receipts/deliver/${saleId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                const result = await res.json();
+                if (res.ok) {
+                    statusDiv.innerHTML = '<span style="color:#10b981;">&#10003; Receipt sent successfully!</span>';
+                    document.getElementById('receiptDeliveryInput').style.display = 'none';
+                } else {
+                    statusDiv.innerHTML = `<span style="color:#dc3545;">Failed: ${result.error || 'Unknown error'}</span>`;
+                }
+            } catch (e) {
+                statusDiv.innerHTML = '<span style="color:#dc3545;">Network error - could not send receipt</span>';
+            }
+        }
+
+        // ========== FORENSIC AUDIT LOG VIEWER ==========
+
+        async function loadForensicAuditReport(container) {
+            container.innerHTML = `
+                <h2 style="margin-bottom:15px;">Forensic Audit Log</h2>
+                <div style="display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap;align-items:end;">
+                    <div>
+                        <label style="font-size:12px;color:#666;display:block;">Action Type</label>
+                        <select id="auditActionFilter" style="padding:8px;border:1px solid #ddd;border-radius:4px;">
+                            <option value="">All Actions</option>
+                            <option value="CREATE">Create</option>
+                            <option value="UPDATE">Update</option>
+                            <option value="DELETE">Delete</option>
+                            <option value="VOID">Void</option>
+                            <option value="LOGIN">Login</option>
+                            <option value="RETURN">Return</option>
+                            <option value="STOCK_ADJUST">Stock Adjust</option>
+                            <option value="PRICE_OVERRIDE">Price Override</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:12px;color:#666;display:block;">Entity Type</label>
+                        <select id="auditEntityFilter" style="padding:8px;border:1px solid #ddd;border-radius:4px;">
+                            <option value="">All Entities</option>
+                            <option value="sale">Sale</option>
+                            <option value="product">Product</option>
+                            <option value="customer">Customer</option>
+                            <option value="user">User</option>
+                            <option value="session">Session</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:12px;color:#666;display:block;">User</label>
+                        <input type="text" id="auditUserFilter" placeholder="Username..." style="padding:8px;border:1px solid #ddd;border-radius:4px;">
+                    </div>
+                    <button class="btn btn-primary" onclick="fetchForensicAudit()" style="padding:8px 15px;">Filter</button>
+                </div>
+                <div id="forensicAuditResults" style="max-height:60vh;overflow-y:auto;">
+                    <div style="text-align:center;padding:40px;color:#999;">Click Filter to load audit entries</div>
+                </div>
+            `;
+        }
+
+        async function fetchForensicAudit() {
+            const actionType = document.getElementById('auditActionFilter').value;
+            const entityType = document.getElementById('auditEntityFilter').value;
+            const username = document.getElementById('auditUserFilter').value.trim();
+            const startDate = document.getElementById('reportStartDate').value;
+            const endDate = document.getElementById('reportEndDate').value;
+
+            let url = `${API_URL}/audit/forensic?limit=100`;
+            if (actionType) url += `&action_type=${actionType}`;
+            if (entityType) url += `&entity_type=${entityType}`;
+            if (username) url += `&username=${encodeURIComponent(username)}`;
+            if (startDate) url += `&start_date=${startDate}`;
+            if (endDate) url += `&end_date=${endDate}`;
+
+            const container = document.getElementById('forensicAuditResults');
+            container.innerHTML = '<div style="text-align:center;padding:20px;color:#667eea;">Loading...</div>';
+
+            try {
+                const res = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                const entries = data.entries || [];
+
+                if (entries.length === 0) {
+                    container.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">No audit entries found for the selected filters</div>';
+                    return;
+                }
+
+                container.innerHTML = `
+                    <div style="margin-bottom:10px;font-size:13px;color:#666;">${entries.length} entries found</div>
+                    <table class="products-table" style="font-size:13px;">
+                        <thead>
+                            <tr>
+                                <th>Date/Time</th>
+                                <th>User</th>
+                                <th>Action</th>
+                                <th>Entity</th>
+                                <th>Details</th>
+                                <th>IP</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${entries.map(e => {
+                                const details = typeof e.details === 'string' ? e.details : JSON.stringify(e.details || {});
+                                const shortDetails = details.length > 80 ? details.substring(0, 80) + '...' : details;
+                                const actionColor = {
+                                    'CREATE': '#10b981', 'UPDATE': '#667eea', 'DELETE': '#dc3545',
+                                    'VOID': '#dc3545', 'LOGIN': '#ff9800', 'RETURN': '#ff9800',
+                                    'STOCK_ADJUST': '#9c27b0', 'PRICE_OVERRIDE': '#e91e63'
+                                }[e.action_type] || '#666';
+                                return `<tr>
+                                    <td style="white-space:nowrap;">${new Date(e.created_at).toLocaleString('en-ZA')}</td>
+                                    <td>${e.username || 'System'}</td>
+                                    <td><span style="background:${actionColor};color:white;padding:2px 8px;border-radius:10px;font-size:11px;">${e.action_type}</span></td>
+                                    <td>${e.entity_type || '-'}${e.entity_id ? ' #' + e.entity_id : ''}</td>
+                                    <td title="${details.replace(/"/g, '&quot;')}" style="max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${shortDetails}</td>
+                                    <td style="font-size:11px;color:#999;">${e.ip_address || '-'}</td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (e) {
+                container.innerHTML = '<div style="color:#dc3545;padding:20px;text-align:center;">Error loading audit data</div>';
+            }
+        }
+
+        // ========== PAYMENT METHODS REPORT ==========
+
+        async function loadPaymentMethodsReport(container) {
+            const startDate = document.getElementById('reportStartDate').value;
+            const endDate = document.getElementById('reportEndDate').value;
+
+            let url = `${API_URL}/pos/reports/payment-methods?`;
+            if (startDate) url += `start_date=${startDate}&`;
+            if (endDate) url += `end_date=${endDate}`;
+
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:#667eea;">Loading payment data...</div>';
+
+            try {
+                const res = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                const methods = data.methods || [];
+
+                if (methods.length === 0) {
+                    container.innerHTML = '<h2>Payment Methods Report</h2><div style="text-align:center;padding:40px;color:#999;">No payment data for selected period</div>';
+                    return;
+                }
+
+                const totalAmount = methods.reduce((sum, m) => sum + parseFloat(m.total_amount || 0), 0);
+                const totalCount = methods.reduce((sum, m) => sum + parseInt(m.count || 0), 0);
+
+                container.innerHTML = `
+                    <h2 style="margin-bottom:20px;">Payment Methods Report</h2>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:15px;margin-bottom:20px;">
+                        <div style="background:#f0f4ff;padding:15px;border-radius:8px;text-align:center;">
+                            <div style="font-size:24px;font-weight:bold;color:#667eea;">R ${totalAmount.toFixed(2)}</div>
+                            <div style="font-size:12px;color:#666;">Total Collected</div>
+                        </div>
+                        <div style="background:#e8f5e9;padding:15px;border-radius:8px;text-align:center;">
+                            <div style="font-size:24px;font-weight:bold;color:#2e7d32;">${totalCount}</div>
+                            <div style="font-size:12px;color:#666;">Total Payments</div>
+                        </div>
+                    </div>
+                    <table class="products-table">
+                        <thead>
+                            <tr>
+                                <th>Payment Method</th>
+                                <th style="text-align:right;">Count</th>
+                                <th style="text-align:right;">Total Amount</th>
+                                <th style="text-align:right;">% of Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${methods.map(m => {
+                                const pct = totalAmount > 0 ? ((parseFloat(m.total_amount) / totalAmount) * 100).toFixed(1) : '0';
+                                return `<tr>
+                                    <td><strong>${m.payment_method}</strong></td>
+                                    <td style="text-align:right;">${m.count}</td>
+                                    <td style="text-align:right;">R ${parseFloat(m.total_amount).toFixed(2)}</td>
+                                    <td style="text-align:right;">
+                                        <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;">
+                                            <div style="width:80px;height:8px;background:#e0e0e0;border-radius:4px;overflow:hidden;">
+                                                <div style="width:${pct}%;height:100%;background:#667eea;border-radius:4px;"></div>
+                                            </div>
+                                            ${pct}%
+                                        </div>
+                                    </td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (e) {
+                container.innerHTML = '<h2>Payment Methods Report</h2><div style="color:#dc3545;padding:20px;">Error loading payment data</div>';
+            }
+        }
+
+        // ========== SUSPICIOUS ACTIVITY REPORT ==========
+
+        async function loadSuspiciousActivityReport(container) {
+            container.innerHTML = '<div style="text-align:center;padding:40px;color:#667eea;">Analyzing activity patterns...</div>';
+
+            try {
+                const res = await fetch(`${API_URL}/audit/suspicious-activity`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                const alerts = data.alerts || [];
+
+                container.innerHTML = `
+                    <h2 style="margin-bottom:20px;">Suspicious Activity Monitor</h2>
+                    ${alerts.length === 0 ? `
+                        <div style="text-align:center;padding:40px;">
+                            <div style="font-size:48px;margin-bottom:10px;">&#9989;</div>
+                            <div style="font-size:18px;font-weight:600;color:#2e7d32;">No Suspicious Activity Detected</div>
+                            <div style="color:#666;margin-top:5px;">All activity patterns appear normal for the last 24 hours</div>
+                        </div>
+                    ` : `
+                        <div style="margin-bottom:15px;padding:10px;background:#ffebee;border-radius:8px;border-left:4px solid #dc3545;">
+                            <strong style="color:#c62828;">${alerts.length} Alert${alerts.length > 1 ? 's' : ''} Detected</strong>
+                        </div>
+                        ${alerts.map(alert => `
+                            <div style="background:white;border:1px solid ${alert.severity === 'high' ? '#dc3545' : '#ff9800'};border-radius:8px;padding:15px;margin-bottom:10px;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                                    <strong style="color:${alert.severity === 'high' ? '#c62828' : '#e65100'};">${alert.alert_type || alert.type}</strong>
+                                    <span class="status-badge ${alert.severity === 'high' ? 'alert' : 'pending'}">${alert.severity || 'medium'}</span>
+                                </div>
+                                <div style="font-size:13px;color:#666;">${alert.description || alert.details || ''}</div>
+                                ${alert.username ? `<div style="font-size:12px;color:#999;margin-top:5px;">User: ${alert.username}</div>` : ''}
+                                ${alert.count ? `<div style="font-size:12px;color:#999;margin-top:3px;">Occurrences: ${alert.count}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    `}
+                `;
+            } catch (e) {
+                container.innerHTML = '<h2>Suspicious Activity</h2><div style="color:#dc3545;padding:20px;">Error loading suspicious activity data</div>';
+            }
+        }
+
+        // ========== ENHANCED CUSTOMER MANAGEMENT ==========
+
+        async function showCustomerDetail(customerId) {
+            try {
+                const res = await fetch(`${API_URL}/customers/${customerId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                const c = data.customer;
+
+                const modal = document.createElement('div');
+                modal.className = 'modal-overlay';
+                modal.id = 'customerDetailModal';
+                modal.style.display = 'flex';
+                modal.innerHTML = `
+                    <div class="modal" style="max-width:700px;max-height:85vh;overflow-y:auto;">
+                        <div class="modal-header" style="background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;">
+                            <h2 style="margin:0;">${c.name}</h2>
+                            <button class="close-btn" onclick="document.getElementById('customerDetailModal').remove()" style="color:white;">&times;</button>
+                        </div>
+                        <div class="modal-body" style="padding:20px;">
+                            <!-- Customer Info Bar -->
+                            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">
+                                <div style="background:#f0f4ff;padding:12px;border-radius:8px;text-align:center;">
+                                    <div style="font-size:20px;font-weight:bold;color:#667eea;">${c.loyalty_points || 0}</div>
+                                    <div style="font-size:11px;color:#666;">Loyalty Points</div>
+                                </div>
+                                <div style="background:#e8f5e9;padding:12px;border-radius:8px;text-align:center;">
+                                    <div style="font-size:14px;font-weight:bold;color:#2e7d32;text-transform:capitalize;">${c.loyalty_tier || 'bronze'}</div>
+                                    <div style="font-size:11px;color:#666;">Tier</div>
+                                </div>
+                                <div style="background:#fff3e0;padding:12px;border-radius:8px;text-align:center;">
+                                    <div style="font-size:20px;font-weight:bold;color:#e65100;">R ${parseFloat(c.current_balance || 0).toFixed(2)}</div>
+                                    <div style="font-size:11px;color:#666;">Account Balance</div>
+                                </div>
+                                <div style="background:#f3e5f5;padding:12px;border-radius:8px;text-align:center;">
+                                    <div style="font-size:20px;font-weight:bold;color:#6a1b9a;">R ${parseFloat(c.credit_limit || 0).toFixed(2)}</div>
+                                    <div style="font-size:11px;color:#666;">Credit Limit</div>
+                                </div>
+                            </div>
+
+                            <!-- Sub Tabs -->
+                            <div style="display:flex;gap:5px;margin-bottom:15px;border-bottom:2px solid #e0e0e0;padding-bottom:0;">
+                                <button class="nav-tab active" onclick="showCustomerSubTab('info', this)" style="font-size:13px;padding:8px 15px;">Info</button>
+                                <button class="nav-tab" onclick="showCustomerSubTab('loyalty', this)" style="font-size:13px;padding:8px 15px;">Loyalty</button>
+                                <button class="nav-tab" onclick="showCustomerSubTab('account', this)" style="font-size:13px;padding:8px 15px;">Account</button>
+                                <button class="nav-tab" onclick="showCustomerSubTab('history', this)" style="font-size:13px;padding:8px 15px;">Sales</button>
+                            </div>
+
+                            <!-- Info Tab -->
+                            <div id="custDetailInfo" class="cust-detail-tab">
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;">
+                                    <div><strong>Customer #:</strong> ${c.customer_number || '-'}</div>
+                                    <div><strong>Phone:</strong> ${c.phone || c.contact_number || '-'}</div>
+                                    <div><strong>Email:</strong> ${c.email || '-'}</div>
+                                    <div><strong>ID Number:</strong> ${c.id_number || '-'}</div>
+                                    <div><strong>Group:</strong> ${c.customer_group || 'general'}</div>
+                                    <div><strong>Type:</strong> ${c.customer_type || '-'}</div>
+                                    <div><strong>DOB:</strong> ${c.date_of_birth || '-'}</div>
+                                    <div><strong>Marketing:</strong> ${c.marketing_consent ? 'Yes' : 'No'}</div>
+                                    ${c.notes ? `<div style="grid-column:span 2;"><strong>Notes:</strong> ${c.notes}</div>` : ''}
+                                </div>
+                            </div>
+
+                            <!-- Loyalty Tab -->
+                            <div id="custDetailLoyalty" class="cust-detail-tab" style="display:none;">
+                                <div style="display:flex;gap:10px;margin-bottom:15px;">
+                                    <button class="btn btn-primary" onclick="earnLoyaltyPoints(${c.id})" style="padding:8px 15px;font-size:13px;">+ Earn Points</button>
+                                    <button class="btn btn-secondary" onclick="redeemLoyaltyPoints(${c.id})" style="padding:8px 15px;font-size:13px;">Redeem Points</button>
+                                </div>
+                                <div id="loyaltyHistoryList">Loading loyalty history...</div>
+                            </div>
+
+                            <!-- Account Tab -->
+                            <div id="custDetailAccount" class="cust-detail-tab" style="display:none;">
+                                <div style="display:flex;gap:10px;margin-bottom:15px;">
+                                    <button class="btn btn-primary" onclick="recordAccountPayment(${c.id})" style="padding:8px 15px;font-size:13px;">Record Payment</button>
+                                </div>
+                                <div id="accountHistoryList">Loading account history...</div>
+                            </div>
+
+                            <!-- Sales History Tab -->
+                            <div id="custDetailHistory" class="cust-detail-tab" style="display:none;">
+                                <div id="customerSalesHistory">Loading recent sales...</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+
+                // Load loyalty history
+                loadCustomerLoyaltyHistory(customerId);
+                loadCustomerAccountHistory(customerId);
+                loadCustomerSalesHistory(customerId, data.recentSales);
+
+            } catch (e) {
+                showNotification('Error loading customer details', 'error');
+            }
+        }
+
+        function showCustomerSubTab(tab, btnEl) {
+            document.querySelectorAll('#customerDetailModal .cust-detail-tab').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('#customerDetailModal .nav-tab').forEach(el => el.classList.remove('active'));
+            if (btnEl) btnEl.classList.add('active');
+            const tabMap = { info: 'custDetailInfo', loyalty: 'custDetailLoyalty', account: 'custDetailAccount', history: 'custDetailHistory' };
+            document.getElementById(tabMap[tab]).style.display = 'block';
+        }
+
+        async function loadCustomerLoyaltyHistory(customerId) {
+            try {
+                const res = await fetch(`${API_URL}/customers/${customerId}/loyalty`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                const container = document.getElementById('loyaltyHistoryList');
+                const txns = data.transactions || [];
+
+                container.innerHTML = `
+                    <div style="margin-bottom:10px;font-weight:600;">Balance: ${data.loyalty_points || 0} points | Tier: ${data.loyalty_tier || 'bronze'}</div>
+                    ${txns.length === 0 ? '<div style="color:#999;padding:10px;">No loyalty transactions yet</div>' : `
+                    <table class="products-table" style="font-size:12px;">
+                        <thead><tr><th>Date</th><th>Type</th><th>Points</th><th>Reference</th></tr></thead>
+                        <tbody>
+                            ${txns.map(t => `<tr>
+                                <td>${new Date(t.created_at).toLocaleString('en-ZA')}</td>
+                                <td><span style="color:${t.transaction_type === 'earn' ? '#10b981' : '#dc3545'};">${t.transaction_type}</span></td>
+                                <td style="font-weight:600;color:${t.points > 0 ? '#10b981' : '#dc3545'};">${t.points > 0 ? '+' : ''}${t.points}</td>
+                                <td style="color:#666;">${t.reference || '-'}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>`}
+                `;
+            } catch (e) {
+                document.getElementById('loyaltyHistoryList').innerHTML = '<div style="color:#dc3545;">Error loading loyalty data</div>';
+            }
+        }
+
+        async function loadCustomerAccountHistory(customerId) {
+            try {
+                const res = await fetch(`${API_URL}/customers/${customerId}/account`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                const container = document.getElementById('accountHistoryList');
+                const txns = data.transactions || [];
+
+                container.innerHTML = `
+                    <div style="margin-bottom:10px;font-weight:600;">Balance: R ${parseFloat(data.current_balance || 0).toFixed(2)} | Limit: R ${parseFloat(data.credit_limit || 0).toFixed(2)}</div>
+                    ${txns.length === 0 ? '<div style="color:#999;padding:10px;">No account transactions yet</div>' : `
+                    <table class="products-table" style="font-size:12px;">
+                        <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Balance</th><th>Reference</th></tr></thead>
+                        <tbody>
+                            ${txns.map(t => `<tr>
+                                <td>${new Date(t.created_at).toLocaleString('en-ZA')}</td>
+                                <td>${t.transaction_type}</td>
+                                <td style="font-weight:600;color:${t.transaction_type === 'payment' ? '#10b981' : '#dc3545'};">R ${parseFloat(t.amount || 0).toFixed(2)}</td>
+                                <td>R ${parseFloat(t.balance_after || 0).toFixed(2)}</td>
+                                <td style="color:#666;">${t.reference || '-'}</td>
+                            </tr>`).join('')}
+                        </tbody>
+                    </table>`}
+                `;
+            } catch (e) {
+                document.getElementById('accountHistoryList').innerHTML = '<div style="color:#dc3545;">Error loading account data</div>';
+            }
+        }
+
+        function loadCustomerSalesHistory(customerId, recentSales) {
+            const container = document.getElementById('customerSalesHistory');
+            const sales = recentSales || [];
+            if (sales.length === 0) {
+                container.innerHTML = '<div style="color:#999;padding:10px;">No recent sales found</div>';
+                return;
+            }
+            container.innerHTML = `
+                <table class="products-table" style="font-size:12px;">
+                    <thead><tr><th>Date</th><th>Sale #</th><th>Total</th><th>Payment</th></tr></thead>
+                    <tbody>
+                        ${sales.map(s => `<tr>
+                            <td>${new Date(s.sale_date || s.created_at).toLocaleString('en-ZA')}</td>
+                            <td>${s.sale_number || '#' + s.id}</td>
+                            <td style="font-weight:600;">R ${parseFloat(s.total_amount || 0).toFixed(2)}</td>
+                            <td>${s.payment_method || '-'}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        async function earnLoyaltyPoints(customerId) {
+            const amount = prompt('Enter sale amount to earn points (1 point per R10):');
+            if (!amount || isNaN(amount)) return;
+
+            try {
+                const res = await fetch(`${API_URL}/customers/${customerId}/loyalty/earn`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sale_amount: parseFloat(amount), reference: 'Manual earn' })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showNotification(`${data.points_earned} points earned! New balance: ${data.new_balance}`, 'success');
+                    loadCustomerLoyaltyHistory(customerId);
+                } else {
+                    showNotification(data.error || 'Failed to earn points', 'error');
+                }
+            } catch (e) {
+                showNotification('Error earning points', 'error');
+            }
+        }
+
+        async function redeemLoyaltyPoints(customerId) {
+            const points = prompt('Enter points to redeem (100 points = R10):');
+            if (!points || isNaN(points)) return;
+
+            try {
+                const res = await fetch(`${API_URL}/customers/${customerId}/loyalty/redeem`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ points: parseInt(points), reference: 'Manual redeem' })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showNotification(`${data.points_redeemed} points redeemed! Discount: R ${data.discount_amount}`, 'success');
+                    loadCustomerLoyaltyHistory(customerId);
+                } else {
+                    showNotification(data.error || 'Failed to redeem points', 'error');
+                }
+            } catch (e) {
+                showNotification('Error redeeming points', 'error');
+            }
+        }
+
+        async function recordAccountPayment(customerId) {
+            const amount = prompt('Enter payment amount (R):');
+            if (!amount || isNaN(amount)) return;
+
+            try {
+                const res = await fetch(`${API_URL}/customers/${customerId}/account/payment`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount: parseFloat(amount), reference: 'Counter payment', payment_method: 'CASH' })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showNotification(`Payment of R ${parseFloat(amount).toFixed(2)} recorded! New balance: R ${data.new_balance}`, 'success');
+                    loadCustomerAccountHistory(customerId);
+                } else {
+                    showNotification(data.error || 'Failed to record payment', 'error');
+                }
+            } catch (e) {
+                showNotification('Error recording payment', 'error');
+            }
+        }
+
+        // ========== VOID SALE FUNCTION ==========
+
+        async function voidSale(saleId) {
+            const reason = prompt('Enter reason for voiding this sale:');
+            if (!reason || !reason.trim()) {
+                showNotification('Void reason is required', 'error');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to void this sale? Stock will be restored.')) return;
+
+            try {
+                const res = await fetch(`${API_URL}/pos/sales/${saleId}/void`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason: reason.trim() })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showNotification('Sale voided successfully. Stock has been restored.', 'success');
+                    // Refresh current view
+                    if (typeof loadProducts === 'function') loadProducts();
+                } else {
+                    showNotification(data.error || 'Failed to void sale', 'error');
+                }
+            } catch (e) {
+                showNotification('Error voiding sale', 'error');
+            }
+        }
     </script>
 </body>
 </html>

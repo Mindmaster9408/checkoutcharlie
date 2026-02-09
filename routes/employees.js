@@ -215,28 +215,37 @@ router.put('/:id', requirePermission('EMPLOYEES.EDIT'), (req, res) => {
   const updatedBy = req.user.userId;
   const {
     full_name, employee_id, department, manager_user_id,
-    hourly_rate, salary, role, profile_photo_url
+    hourly_rate, salary, role, profile_photo_url, email, username
   } = req.body;
 
+  // First update user details
   db.run(
     `UPDATE users SET
       full_name = COALESCE(?, full_name),
       employee_id = COALESCE(?, employee_id),
+      email = COALESCE(?, email),
+      username = COALESCE(?, username),
       department = ?,
       manager_user_id = ?,
       hourly_rate = ?,
       salary = ?,
       profile_photo_url = ?
      WHERE id = ?`,
-    [full_name, employee_id, department, manager_user_id, hourly_rate, salary, profile_photo_url, id],
+    [full_name, employee_id, email, username, department, manager_user_id, hourly_rate, salary, profile_photo_url, id],
     (err) => {
-      if (err) return res.status(500).json({ error: 'Failed to update employee' });
+      if (err) {
+        console.error('Failed to update employee:', err);
+        return res.status(500).json({ error: 'Failed to update employee', details: err.message });
+      }
 
       // Update role if provided
       if (role) {
         db.run(
           `UPDATE user_company_access SET role = ? WHERE user_id = ? AND company_id = ?`,
-          [role, id, companyId]
+          [role, id, companyId],
+          (roleErr) => {
+            if (roleErr) console.error('Failed to update role:', roleErr);
+          }
         );
       }
 
@@ -247,7 +256,7 @@ router.put('/:id', requirePermission('EMPLOYEES.EDIT'), (req, res) => {
         [companyId, updatedBy, 'employee_updated', 'employees', JSON.stringify({ employee_id: id })]
       );
 
-      res.json({ success: true, message: 'Employee updated' });
+      res.json({ success: true, message: 'Employee updated successfully' });
     }
   );
 });

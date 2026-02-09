@@ -697,4 +697,291 @@ router.put('/settings', requirePermission('SETTINGS.EDIT'), (req, res) => {
     });
 });
 
+// ========== RECEIPT DELIVERY METHODS ==========
+
+/**
+ * POST /api/receipts/deliver/:saleId
+ * Deliver receipt via specified method(s)
+ * Supports: print, email, sms, whatsapp, qr
+ */
+router.post('/deliver/:saleId', requirePermission('POS.CREATE_SALE'), (req, res) => {
+  const { saleId } = req.params;
+  const { methods, email, phone } = req.body;
+  const companyId = req.user.companyId;
+  const userId = req.user.userId;
+
+  if (!methods || !Array.isArray(methods) || methods.length === 0) {
+    return res.status(400).json({ error: 'At least one delivery method required' });
+  }
+
+  // Get sale details
+  db.get(`
+    SELECT s.*, u.full_name as cashier_name, c.name as customer_name,
+           c.email as customer_email, c.phone as customer_phone, c.contact_number
+    FROM sales s
+    JOIN users u ON s.user_id = u.id
+    LEFT JOIN customers c ON s.customer_id = c.id
+    WHERE s.id = ? AND s.company_id = ?
+  `, [saleId, companyId], (err, sale) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (!sale) return res.status(404).json({ error: 'Sale not found' });
+
+    // Get sale items
+    db.all(`
+      SELECT si.*, p.product_name, p.product_code
+      FROM sale_items si
+      JOIN products p ON si.product_id = p.id
+      WHERE si.sale_id = ?
+    `, [saleId], (err, items) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+
+      const results = [];
+      let processed = 0;
+      const totalMethods = methods.length;
+
+      // Build text receipt for digital delivery
+      const textReceipt = buildTextReceipt(sale, items);
+
+      methods.forEach(method => {
+        const deliveryResult = { method, status: 'pending' };
+
+        switch (method) {
+          case 'print':
+            // Trigger print (reuse existing print logic)
+            deliveryResult.status = 'queued';
+            deliveryResult.message = 'Sent to printer';
+            recordDelivery(companyId, saleId, 'print', 'sent', userId);
+            break;
+
+          case 'email':
+            const recipientEmail = email || sale.customer_email;
+            if (!recipientEmail) {
+              deliveryResult.status = 'failed';
+              deliveryResult.message = 'No email address provided';
+            } else {
+              // In production, integrate with nodemailer/SendGrid
+              deliveryResult.status = 'queued';
+              deliveryResult.recipient = recipientEmail;
+              deliveryResult.message = 'Email receipt queued for delivery';
+              recordDelivery(companyId, saleId, 'email', 'queued', userId, recipientEmail);
+
+              // Update sale
+              db.run('UPDATE sales SET receipt_email_sent = 1 WHERE id = ?', [saleId]);
+            }
+            break;
+
+          case 'sms':
+            const recipientPhone = phone || sale.customer_phone || sale.contact_number;
+            if (!recipientPhone) {
+              deliveryResult.status = 'failed';
+              deliveryResult.message = 'No phone number provided';
+            } else {
+              // In production, integrate with Twilio/Africa\'s Talking
+              const smsText = `Receipt ${sale.sale_number} - Total: R${parseFloat(sale.total_amount).toFixed(2)}. Thank you for your purchase!`;
+              deliveryResult.status = 'queued';
+              deliveryResult.recipient = recipientPhone;
+              deliveryResult.message = 'SMS receipt queued';
+              deliveryResult.preview = smsText;
+              recordDelivery(companyId, saleId, 'sms', 'queued', userId, recipientPhone);
+
+              db.run('UPDATE sales SET receipt_sms_sent = 1 WHERE id = ?', [saleId]);
+            }
+            break;
+
+          case 'whatsapp':
+            const waPhone = phone || sale.customer_phone || sale.contact_number;
+            if (!waPhone) {
+              deliveryResult.status = 'failed';
+              deliveryResult.message = 'No phone number provided';
+            } else {
+              // In production, integrate with WhatsApp Business API
+              deliveryResult.status = 'queued';
+              deliveryResult.recipient = waPhone;
+              deliveryResult.message = 'WhatsApp receipt queued';
+              recordDelivery(companyId, saleId, 'whatsapp', 'queued', userId, waPhone);
+            }
+            break;
+
+          case 'qr':
+            // Generate a QR code URL that links to digital receipt
+            const receiptUrl = `/api/receipts/digital/${sale.sale_number}`;
+            deliveryResult.status = 'generated';
+            deliveryResult.qrData = receiptUrl;
+            deliveryResult.message = 'QR code generated - customer can scan to view receipt';
+            recordDelivery(companyId, saleId, 'qr', 'sent', userId);
+            break;
+
+          default:
+            deliveryResult.status = 'unsupported';
+            deliveryResult.message = `Unknown delivery method: ${method}`;
+        }
+
+        results.push(deliveryResult);
+        processed++;
+
+        if (processed === totalMethods) {
+          res.json({
+            saleId,
+            saleNumber: sale.sale_number,
+            deliveryResults: results,
+            textReceipt: methods.includes('email') || methods.includes('sms') ? textReceipt : undefined
+          });
+        }
+      });
+    });
+  });
+});
+
+/**
+ * GET /api/receipts/digital/:saleNumber
+ * Public-facing digital receipt (for QR code scanning)
+ */
+router.get('/digital/:saleNumber', (req, res) => {
+  const { saleNumber } = req.params;
+
+  db.get(`
+    SELECT s.*, u.full_name as cashier_name, c.name as customer_name,
+           comp.company_name, comp.address as company_address, comp.phone as company_phone
+    FROM sales s
+    JOIN users u ON s.user_id = u.id
+    LEFT JOIN customers c ON s.customer_id = c.id
+    JOIN companies comp ON s.company_id = comp.id
+    WHERE s.sale_number = ?
+  `, [saleNumber], (err, sale) => {
+    if (err || !sale) return res.status(404).json({ error: 'Receipt not found' });
+
+    db.all(`
+      SELECT si.*, p.product_name, p.product_code
+      FROM sale_items si
+      JOIN products p ON si.product_id = p.id
+      WHERE si.sale_id = ?
+    `, [sale.id], (err, items) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+
+      // Return JSON receipt data (frontend can render nicely)
+      res.json({
+        receipt: {
+          company: sale.company_name,
+          companyAddress: sale.company_address,
+          companyPhone: sale.company_phone,
+          saleNumber: sale.sale_number,
+          date: sale.created_at,
+          cashier: sale.cashier_name,
+          customer: sale.customer_name,
+          items: items.map(i => ({
+            name: i.product_name,
+            code: i.product_code,
+            qty: i.quantity,
+            price: parseFloat(i.unit_price),
+            total: parseFloat(i.total_price)
+          })),
+          subtotal: parseFloat(sale.subtotal),
+          vat: parseFloat(sale.vat_amount),
+          total: parseFloat(sale.total_amount),
+          paymentMethod: sale.payment_method,
+          voided: !!sale.voided_at
+        }
+      });
+    });
+  });
+});
+
+/**
+ * POST /api/receipts/reprint/:saleId
+ * Reprint receipt with DUPLICATE watermark
+ */
+router.post('/reprint/:saleId', requirePermission('POS.VIEW_REPORTS'), async (req, res) => {
+  const { saleId } = req.params;
+  const { printerId } = req.body;
+  const companyId = req.user.companyId;
+
+  // Get sale
+  db.get(`
+    SELECT s.*, u.full_name as cashier_name, c.name as customer_name,
+           c.contact_number as customer_phone, c.email as customer_email
+    FROM sales s
+    JOIN users u ON s.user_id = u.id
+    LEFT JOIN customers c ON s.customer_id = c.id
+    WHERE s.id = ? AND s.company_id = ?
+  `, [saleId, companyId], (err, sale) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (!sale) return res.status(404).json({ error: 'Sale not found' });
+
+    // Get items
+    db.all(`
+      SELECT si.*, p.product_name, p.product_code
+      FROM sale_items si JOIN products p ON si.product_id = p.id
+      WHERE si.sale_id = ?
+    `, [saleId], (err, items) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+
+      // Record as reprint
+      recordDelivery(companyId, saleId, 'reprint', 'sent', req.user.userId);
+
+      // Return receipt data with DUPLICATE flag
+      res.json({
+        success: true,
+        isDuplicate: true,
+        sale,
+        items,
+        message: 'Receipt reprint queued (marked as DUPLICATE)'
+      });
+    });
+  });
+});
+
+/**
+ * GET /api/receipts/delivery-history/:saleId
+ * Get delivery history for a sale
+ */
+router.get('/delivery-history/:saleId', requirePermission('POS.VIEW_REPORTS'), (req, res) => {
+  const { saleId } = req.params;
+  const companyId = req.user.companyId;
+
+  db.all(`
+    SELECT rd.*, u.full_name as delivered_by_name
+    FROM receipt_deliveries rd
+    LEFT JOIN users u ON rd.delivered_by_user_id = u.id
+    WHERE rd.sale_id = ? AND rd.company_id = ?
+    ORDER BY rd.created_at DESC
+  `, [saleId, companyId], (err, deliveries) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    res.json({ deliveries: deliveries || [] });
+  });
+});
+
+// ========== HELPERS ==========
+
+function recordDelivery(companyId, saleId, method, status, userId, recipient) {
+  db.run(
+    `INSERT INTO receipt_deliveries (company_id, sale_id, delivery_method, status, recipient, delivered_by_user_id)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [companyId, saleId, method, status, recipient || null, userId]
+  );
+}
+
+function buildTextReceipt(sale, items) {
+  let receipt = '';
+  receipt += `RECEIPT: ${sale.sale_number}\n`;
+  receipt += `Date: ${new Date(sale.created_at).toLocaleString('en-ZA')}\n`;
+  receipt += `Cashier: ${sale.cashier_name}\n`;
+  if (sale.customer_name) receipt += `Customer: ${sale.customer_name}\n`;
+  receipt += '─'.repeat(40) + '\n';
+
+  items.forEach(item => {
+    receipt += `${item.product_name}\n`;
+    receipt += `  ${item.quantity} x R${parseFloat(item.unit_price).toFixed(2)} = R${parseFloat(item.total_price).toFixed(2)}\n`;
+  });
+
+  receipt += '─'.repeat(40) + '\n';
+  receipt += `Subtotal: R${parseFloat(sale.subtotal).toFixed(2)}\n`;
+  receipt += `VAT (15%): R${parseFloat(sale.vat_amount).toFixed(2)}\n`;
+  receipt += `TOTAL: R${parseFloat(sale.total_amount).toFixed(2)}\n`;
+  receipt += `Payment: ${sale.payment_method}\n`;
+  receipt += '─'.repeat(40) + '\n';
+  receipt += 'Thank you for your purchase!\n';
+
+  return receipt;
+}
+
 module.exports = router;

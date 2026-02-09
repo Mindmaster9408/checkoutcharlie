@@ -284,7 +284,10 @@ async function initDatabase() {
     await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS company_id INTEGER`);
 
     // ========== MIGRATION: Create default company for existing data ==========
-
+    // NOTE: This migration section has been disabled to prevent creating "Default Company" on every startup.
+    // If you need to create a default company, use the admin dashboard or run this manually once.
+    
+    /*
     // Create default company if not exists
     const companyResult = await pool.query(`
       INSERT INTO companies (company_name, trading_name)
@@ -341,6 +344,7 @@ async function initDatabase() {
       VALUES ($1, $2, $3, $4)
       ON CONFLICT DO NOTHING
     `, [defaultCompanyId, 'Main Till', 'TILL-001', 'Front Counter']);
+    */
 
     // ========== SUPER ADMIN USER ==========
     // Create super admin user (Lorenco - platform owner)
@@ -351,10 +355,14 @@ async function initDatabase() {
       ON CONFLICT (username) DO UPDATE SET is_super_admin = 1
     `, ['lorenco_admin', 'antonjvr@lorenco.co.za', superAdminHash, 'Anton (Lorenco)', 'super_admin', 'super_admin', 1]);
 
+    // NOTE: Removed the automatic update of default company subscription status
+    // This was causing issues when default company wasn't needed
+    /*
     // Update default company to active subscription
     await pool.query(`
       UPDATE companies SET subscription_status = 'active' WHERE id = $1
     `, [defaultCompanyId]);
+    */
 
     // ========== BARCODE TABLES ==========
 
@@ -403,7 +411,31 @@ async function initDatabase() {
 
     // ========== AUDIT & SETTINGS TABLES ==========
 
-    // Audit Trail table
+    // Forensic Audit Log table (Phase 1 - immutable, append-only)
+    await pool.query(`CREATE TABLE IF NOT EXISTS audit_log (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER,
+      user_id INTEGER,
+      user_email VARCHAR(255) NOT NULL DEFAULT 'system',
+      action_type VARCHAR(50) NOT NULL,
+      entity_type VARCHAR(50) NOT NULL,
+      entity_id VARCHAR(100),
+      field_name VARCHAR(100),
+      old_value TEXT,
+      new_value TEXT,
+      ip_address VARCHAR(50),
+      session_id VARCHAR(255),
+      user_agent TEXT,
+      additional_metadata TEXT DEFAULT '{}',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_audit_log_company ON audit_log(company_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action_type)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_audit_log_entity ON audit_log(entity_type, entity_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON audit_log(created_at DESC)`);
+
+    // Legacy Audit Trail table (kept for backward compatibility)
     await pool.query(`CREATE TABLE IF NOT EXISTS audit_trail (
       id SERIAL PRIMARY KEY,
       company_id INTEGER,
@@ -460,6 +492,111 @@ async function initDatabase() {
       await pool.query(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS group_same_items INTEGER DEFAULT 1`);
       await pool.query(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS use_product_images INTEGER DEFAULT 0`);
     } catch (e) { /* columns may already exist */ }
+
+    // ========== PHASE 1: MULTI-PAYMENT TABLES ==========
+
+    // Sale Payments table (split payment support)
+    await pool.query(`CREATE TABLE IF NOT EXISTS sale_payments (
+      id SERIAL PRIMARY KEY,
+      sale_id INTEGER NOT NULL,
+      company_id INTEGER,
+      payment_method VARCHAR(50) NOT NULL,
+      amount DECIMAL(10,2) NOT NULL,
+      reference VARCHAR(255),
+      status VARCHAR(50) DEFAULT 'completed',
+      processed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      processed_by INTEGER,
+      metadata TEXT DEFAULT '{}',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_sale_payments_sale ON sale_payments(sale_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_sale_payments_company ON sale_payments(company_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_sale_payments_method ON sale_payments(payment_method)`);
+
+    // Add new columns to sales table for Phase 1
+    await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS payment_status VARCHAR(50) DEFAULT 'completed'`);
+    await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS payment_complete INTEGER DEFAULT 1`);
+    await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS voided_at TIMESTAMP`);
+    await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS voided_by INTEGER`);
+    await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS void_reason TEXT`);
+    await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS discount_amount DECIMAL(10,2) DEFAULT 0`);
+    await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS discount_reason TEXT`);
+    await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS receipt_number VARCHAR(50)`);
+    await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS receipt_email_sent INTEGER DEFAULT 0`);
+    await pool.query(`ALTER TABLE sales ADD COLUMN IF NOT EXISTS receipt_sms_sent INTEGER DEFAULT 0`);
+
+    // ========== PHASE 1: CUSTOMER MANAGEMENT UPGRADES ==========
+
+    // Add loyalty/credit columns to customers table
+    await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS customer_number VARCHAR(50)`);
+    await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS first_name VARCHAR(100)`);
+    await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS last_name VARCHAR(100)`);
+    await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS phone VARCHAR(50)`);
+    await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS date_of_birth DATE`);
+    await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS id_number VARCHAR(50)`);
+    await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS customer_group VARCHAR(50) DEFAULT 'retail'`);
+    await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS credit_limit DECIMAL(10,2) DEFAULT 0`);
+    await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS current_balance DECIMAL(10,2) DEFAULT 0`);
+    await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS loyalty_points INTEGER DEFAULT 0`);
+    await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS loyalty_tier VARCHAR(50) DEFAULT 'bronze'`);
+    await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS marketing_consent INTEGER DEFAULT 0`);
+    await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS notes TEXT`);
+
+    // Customer Group Pricing table
+    await pool.query(`CREATE TABLE IF NOT EXISTS customer_group_pricing (
+      id SERIAL PRIMARY KEY,
+      company_id INTEGER NOT NULL,
+      customer_group VARCHAR(50) NOT NULL,
+      product_id INTEGER NOT NULL,
+      price DECIMAL(10,2) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_group_pricing_company ON customer_group_pricing(company_id)`);
+
+    // Loyalty Point Transactions table
+    await pool.query(`CREATE TABLE IF NOT EXISTS loyalty_point_transactions (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER NOT NULL,
+      company_id INTEGER NOT NULL,
+      points_change INTEGER NOT NULL,
+      transaction_type VARCHAR(50) NOT NULL,
+      description TEXT,
+      sale_id INTEGER,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_loyalty_pt_customer ON loyalty_point_transactions(customer_id)`);
+
+    // Customer Account Transactions table (credit accounts)
+    await pool.query(`CREATE TABLE IF NOT EXISTS customer_account_transactions (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER NOT NULL,
+      company_id INTEGER NOT NULL,
+      transaction_type VARCHAR(50) NOT NULL,
+      amount DECIMAL(10,2) NOT NULL,
+      balance_after DECIMAL(10,2) NOT NULL,
+      sale_id INTEGER,
+      payment_id INTEGER,
+      due_date DATE,
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_account_trans_customer ON customer_account_transactions(customer_id)`);
+
+    // ========== PHASE 1: RECEIPT DELIVERY TRACKING ==========
+
+    // Receipt Deliveries table
+    await pool.query(`CREATE TABLE IF NOT EXISTS receipt_deliveries (
+      id SERIAL PRIMARY KEY,
+      sale_id INTEGER NOT NULL,
+      company_id INTEGER,
+      delivery_method VARCHAR(50) NOT NULL,
+      recipient VARCHAR(255),
+      status VARCHAR(50) DEFAULT 'pending',
+      delivered_at TIMESTAMP,
+      error_message TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_receipt_deliveries_sale ON receipt_deliveries(sale_id)`);
 
     // ========== STOCK MANAGEMENT TABLES ==========
 
@@ -1288,26 +1425,35 @@ async function initDatabase() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // Create default location for default company
-    await pool.query(`
-      INSERT INTO locations (company_id, location_code, location_name, location_type)
-      VALUES ($1, 'HQ-001', 'Head Office', 'hq')
-      ON CONFLICT (company_id, location_code) DO NOTHING
-    `, [defaultCompanyId]);
+    // ========== SAFE DEFAULT DATA INITIALIZATION ==========
+    // Only create default data if a company already exists (prevents creating orphan records)
+    const existingCompanies = await pool.query(`SELECT id FROM companies WHERE is_active = 1 ORDER BY id LIMIT 1`);
+    if (existingCompanies.rows.length > 0) {
+      const defaultCompanyId = existingCompanies.rows[0].id;
 
-    // Create default barcode settings for default company
-    await pool.query(`
-      INSERT INTO barcode_settings (company_id, company_prefix, current_sequence, barcode_type)
-      VALUES ($1, '600', 1000, 'EAN13')
-      ON CONFLICT (company_id) DO NOTHING
-    `, [defaultCompanyId]);
+      // Create default location for existing company (if not exists)
+      await pool.query(`
+        INSERT INTO locations (company_id, location_code, location_name, location_type)
+        VALUES ($1, 'HQ-001', 'Head Office', 'hq')
+        ON CONFLICT (company_id, location_code) DO NOTHING
+      `, [defaultCompanyId]);
 
-    // Create default company settings for default company
-    await pool.query(`
-      INSERT INTO company_settings (company_id, till_float_amount)
-      VALUES ($1, 500.00)
-      ON CONFLICT (company_id) DO NOTHING
-    `, [defaultCompanyId]);
+      // Create default barcode settings for existing company (if not exists)
+      await pool.query(`
+        INSERT INTO barcode_settings (company_id, company_prefix, current_sequence, barcode_type)
+        VALUES ($1, '600', 1000, 'EAN13')
+        ON CONFLICT (company_id) DO NOTHING
+      `, [defaultCompanyId]);
+
+      // Create default company settings for existing company (if not exists)
+      await pool.query(`
+        INSERT INTO company_settings (company_id, till_float_amount)
+        VALUES ($1, 500.00)
+        ON CONFLICT (company_id) DO NOTHING
+      `, [defaultCompanyId]);
+    } else {
+      console.log('ℹ️  No companies found - skipping default data initialization');
+    }
 
     console.log('✅ Database initialized successfully');
     await pool.end();

@@ -1037,6 +1037,171 @@ router.post('/companies/:id/users', authenticateToken, async (req, res) => {
 });
 
 /**
+ * PUT /api/auth/companies/:companyId/users/:userId/edit
+ * Edit user details (name, email, role, active status, etc.)
+ * Bug #3 Fix: Full user editing functionality
+ */
+router.put('/companies/:companyId/users/:userId/edit', authenticateToken, async (req, res) => {
+  const userRole = req.user.role;
+  if (!['business_owner', 'corporate_admin', 'store_manager', 'admin'].includes(userRole)) {
+    return res.status(403).json({ error: 'Insufficient permissions - only admins can edit users' });
+  }
+
+  const { companyId, userId } = req.params;
+  const { full_name, email, role, is_active, employee_id, department, password, new_company_id } = req.body;
+
+  // Prevent editing users from other companies (unless super admin)
+  if (req.user.companyId && req.user.companyId !== parseInt(companyId) && !req.user.isSuperAdmin) {
+    return res.status(403).json({ error: 'Cannot edit users from other companies' });
+  }
+
+  // Verify user exists and belongs to this company
+  db.get(
+    `SELECT u.*, uca.role as company_role, uca.is_primary
+     FROM users u
+     JOIN user_company_access uca ON u.id = uca.user_id
+     WHERE u.id = ? AND uca.company_id = ?`,
+    [userId, companyId],
+    async (err, user) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (!user) return res.status(404).json({ error: 'User not found in this company' });
+
+      // Build update query dynamically
+      const updates = [];
+      const params = [];
+
+      if (full_name) { updates.push('full_name = ?'); params.push(full_name); }
+      if (email !== undefined) { updates.push('email = ?'); params.push(email); }
+      if (is_active !== undefined) { updates.push('is_active = ?'); params.push(is_active ? 1 : 0); }
+      if (employee_id !== undefined) { updates.push('employee_id = ?'); params.push(employee_id); }
+      if (department !== undefined) { updates.push('department = ?'); params.push(department); }
+
+      // Password reset
+      if (password && password.length >= 6) {
+        const newHash = await bcrypt.hash(password, 10);
+        updates.push('password_hash = ?');
+        params.push(newHash);
+        updates.push('must_change_password = 1');
+      }
+
+      if (updates.length > 0) {
+        params.push(userId);
+        db.run(
+          `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
+          params,
+          function(updateErr) {
+            if (updateErr) return res.status(500).json({ error: 'Failed to update user', details: updateErr.message });
+
+            // Update role in user_company_access if provided
+            if (role) {
+              db.run(
+                `UPDATE user_company_access SET role = ? WHERE user_id = ? AND company_id = ?`,
+                [role, userId, companyId],
+                (roleErr) => {
+                  if (roleErr) console.error('Failed to update role:', roleErr);
+                }
+              );
+              // Also update the role in the users table
+              db.run(`UPDATE users SET role = ? WHERE id = ?`, [role, userId], () => {});
+            }
+
+            // Handle company reassignment
+            if (new_company_id && new_company_id !== parseInt(companyId)) {
+              db.run(
+                `UPDATE user_company_access SET company_id = ? WHERE user_id = ? AND company_id = ?`,
+                [new_company_id, userId, companyId],
+                (reassignErr) => {
+                  if (reassignErr) console.error('Failed to reassign company:', reassignErr);
+                }
+              );
+            }
+
+            res.json({
+              success: true,
+              message: 'User updated successfully',
+              user: {
+                id: parseInt(userId),
+                full_name: full_name || user.full_name,
+                email: email !== undefined ? email : user.email,
+                role: role || user.company_role,
+                is_active: is_active !== undefined ? is_active : user.is_active
+              }
+            });
+          }
+        );
+      } else if (role) {
+        // Only role update
+        db.run(
+          `UPDATE user_company_access SET role = ? WHERE user_id = ? AND company_id = ?`,
+          [role, userId, companyId],
+          function(roleErr) {
+            if (roleErr) return res.status(500).json({ error: 'Failed to update role' });
+            db.run(`UPDATE users SET role = ? WHERE id = ?`, [role, userId], () => {});
+            res.json({ success: true, message: 'User role updated' });
+          }
+        );
+      } else {
+        return res.status(400).json({ error: 'No changes provided' });
+      }
+    }
+  );
+});
+
+/**
+ * PUT /api/auth/companies/:companyId/users/:userId/activate
+ * Activate/deactivate a user
+ */
+router.put('/companies/:companyId/users/:userId/activate', authenticateToken, (req, res) => {
+  const userRole = req.user.role;
+  if (!['business_owner', 'corporate_admin', 'store_manager', 'admin'].includes(userRole)) {
+    return res.status(403).json({ error: 'Insufficient permissions' });
+  }
+
+  const { userId } = req.params;
+  const { active } = req.body;
+
+  db.run(
+    `UPDATE users SET is_active = ? WHERE id = ?`,
+    [active ? 1 : 0, userId],
+    function(err) {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (this.changes === 0) return res.status(404).json({ error: 'User not found' });
+      res.json({ success: true, message: active ? 'User activated' : 'User deactivated' });
+    }
+  );
+});
+
+/**
+ * PUT /api/auth/companies/:companyId/users/:userId/reset-password
+ * Reset a user's password (admin only)
+ */
+router.put('/companies/:companyId/users/:userId/reset-password', authenticateToken, async (req, res) => {
+  const userRole = req.user.role;
+  if (!['business_owner', 'corporate_admin', 'store_manager', 'admin'].includes(userRole)) {
+    return res.status(403).json({ error: 'Insufficient permissions' });
+  }
+
+  const { userId } = req.params;
+  const { new_password } = req.body;
+
+  if (!new_password || new_password.length < 6) {
+    return res.status(400).json({ error: 'New password must be at least 6 characters' });
+  }
+
+  const newHash = await bcrypt.hash(new_password, 10);
+
+  db.run(
+    `UPDATE users SET password_hash = ?, must_change_password = 1 WHERE id = ?`,
+    [newHash, userId],
+    function(err) {
+      if (err) return res.status(500).json({ error: 'Database error' });
+      if (this.changes === 0) return res.status(404).json({ error: 'User not found' });
+      res.json({ success: true, message: 'Password reset successfully. User must change password on next login.' });
+    }
+  );
+});
+
+/**
  * DELETE /api/auth/companies/:companyId/users/:userId
  * Remove a user from a company
  */
@@ -1053,6 +1218,73 @@ router.delete('/companies/:companyId/users/:userId', authenticateToken, (req, re
       if (err) return res.status(500).json({ error: 'Database error' });
       if (this.changes === 0) return res.status(404).json({ error: 'User not found in this company' });
       res.json({ message: 'User removed from company' });
+    }
+  );
+});
+
+/**
+ * PUT /api/auth/companies/:companyId/users/:userId
+ * Update user's company access (link user to company or update role)
+ */
+router.put('/companies/:companyId/users/:userId', authenticateToken, (req, res) => {
+  const userRole = req.user.role;
+  if (!['business_owner', 'corporate_admin', 'store_manager', 'admin'].includes(userRole)) {
+    return res.status(403).json({ error: 'Insufficient permissions' });
+  }
+
+  const { companyId, userId } = req.params;
+  const { role, is_primary, is_active } = req.body;
+
+  if (!role) {
+    return res.status(400).json({ error: 'Role is required' });
+  }
+
+  // Check if user-company access exists
+  db.get(
+    'SELECT id FROM user_company_access WHERE user_id = ? AND company_id = ?',
+    [userId, companyId],
+    (err, existing) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error' });
+      }
+
+      if (existing) {
+        // Update existing access
+        db.run(
+          `UPDATE user_company_access SET 
+            role = COALESCE(?, role),
+            is_primary = COALESCE(?, is_primary),
+            is_active = COALESCE(?, is_active)
+           WHERE user_id = ? AND company_id = ?`,
+          [role, is_primary, is_active, userId, companyId],
+          function(updateErr) {
+            if (updateErr) {
+              return res.status(500).json({ error: 'Failed to update user company access' });
+            }
+            res.json({ 
+              success: true, 
+              message: 'User company access updated successfully' 
+            });
+          }
+        );
+      } else {
+        // Create new access
+        db.run(
+          `INSERT INTO user_company_access (user_id, company_id, role, is_primary, granted_by_user_id, is_active)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [userId, companyId, role, is_primary || 0, req.user.userId, is_active !== undefined ? is_active : 1],
+          function(insertErr) {
+            if (insertErr) {
+              return res.status(500).json({ error: 'Failed to create user company access' });
+            }
+            res.json({ 
+              success: true, 
+              message: 'User linked to company successfully',
+              access_id: this.lastID
+            });
+          }
+        );
+      }
     }
   );
 });

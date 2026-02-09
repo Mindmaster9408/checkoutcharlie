@@ -6,6 +6,7 @@
 const express = require('express');
 const db = require('../database');
 const { authenticateToken, requireCompany, requirePermission } = require('../middleware/auth');
+const { logAudit } = require('../middleware/audit');
 
 const router = express.Router();
 
@@ -480,8 +481,8 @@ router.post('/sales', (req, res) => {
 
       // Insert sale
       db.run(
-        `INSERT INTO sales (company_id, sale_number, till_session_id, user_id, customer_id, subtotal, vat_amount, total_amount, payment_method)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO sales (company_id, sale_number, till_session_id, user_id, customer_id, subtotal, vat_amount, total_amount, payment_method, payment_status, payment_complete)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid', 1)`,
         [companyId, saleNumber, tillSessionId, userId, customerId || null, subtotal, vatAmount, totalAmount, paymentMethod],
         function(err) {
           if (err) {
@@ -501,6 +502,18 @@ router.post('/sales', (req, res) => {
 
           stmt.finalize();
           updateStmt.finalize();
+
+          // Record payment in sale_payments table
+          db.run(
+            `INSERT INTO sale_payments (company_id, sale_id, payment_method, amount, reference_number, status)
+             VALUES (?, ?, ?, ?, ?, 'completed')`,
+            [companyId, saleId, paymentMethod, totalAmount, saleNumber]
+          );
+
+          // Forensic audit log
+          logAudit(req, 'CREATE', 'sale', saleId, {
+            metadata: { saleNumber, subtotal, vatAmount, totalAmount, paymentMethod, itemCount: saleItems.length }
+          });
 
           res.json({
             saleId,
@@ -812,6 +825,11 @@ router.post('/sales/:id/return', requirePermission('POS.VOID_SALE'), (req, res) 
             [companyId, userId, 'sale_return', 'sales', JSON.stringify({ returnNumber, originalSaleId: id, totalRefund, authorizedBy: authorizerId })]
           );
 
+          // Forensic audit log
+          logAudit(req, 'RETURN', 'sale', id, {
+            metadata: { returnNumber, returnId, totalRefund, authorizedBy: authorizerId, itemCount: returnItems.length }
+          });
+
           res.json({
             success: true,
             returnId,
@@ -906,10 +924,10 @@ router.post('/sales/split-payment', (req, res) => {
 
       const saleNumber = `SALE-${Date.now()}`;
 
-      // Insert sale
+      // Insert sale with split payment
       db.run(
-        `INSERT INTO sales (company_id, sale_number, till_session_id, user_id, customer_id, subtotal, vat_amount, total_amount, payment_method)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO sales (company_id, sale_number, till_session_id, user_id, customer_id, subtotal, vat_amount, total_amount, payment_method, payment_status, payment_complete)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid', 1)`,
         [companyId, saleNumber, tillSessionId, userId, customerId || null, subtotal, vatAmount, totalAmount, paymentMethod],
         function(err) {
           if (err) {
@@ -929,6 +947,21 @@ router.post('/sales/split-payment', (req, res) => {
 
           stmt.finalize();
           updateStmt.finalize();
+
+          // Record each payment in sale_payments table
+          const payStmt = db.prepare(
+            `INSERT INTO sale_payments (company_id, sale_id, payment_method, amount, reference_number, status)
+             VALUES (?, ?, ?, ?, ?, 'completed')`
+          );
+          payments.forEach(p => {
+            payStmt.run(companyId, saleId, p.method, parseFloat(p.amount), p.reference || null);
+          });
+          payStmt.finalize();
+
+          // Forensic audit log
+          logAudit(req, 'CREATE', 'sale', saleId, {
+            metadata: { saleNumber, subtotal, vatAmount, totalAmount, splitPayment: true, payments, itemCount: saleItems.length }
+          });
 
           res.json({
             saleId,
@@ -1034,6 +1067,11 @@ router.post('/stock/adjust', requirePermission('STOCK.ADJUST'), (req, res) => {
          VALUES (?, ?, ?, ?, ?)`,
         [companyId, userId, 'stock_adjustment', 'inventory', JSON.stringify({ product_id, adjustment_type, quantityChange, quantityBefore, quantityAfter })]
       );
+
+      // Forensic audit log
+      logAudit(req, 'STOCK_ADJUST', 'product', product_id, {
+        metadata: { adjustment_type, quantityChange, quantityBefore, quantityAfter, reason }
+      });
 
       res.json({
         success: true,
@@ -1725,6 +1763,184 @@ router.get('/products/with-discounts', (req, res) => {
     });
 
     res.json({ products });
+  });
+});
+
+// ========== VOID SALE ==========
+
+// Void a sale (manager+ only, requires reason)
+router.post('/sales/:id/void', requirePermission('POS.VOID_SALE'), (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+  const companyId = req.user.companyId;
+  const userId = req.user.userId;
+
+  if (!reason || reason.trim().length < 3) {
+    return res.status(400).json({ error: 'A valid reason is required for voiding a sale' });
+  }
+
+  db.get('SELECT * FROM sales WHERE id = ? AND company_id = ?', [id, companyId], (err, sale) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (!sale) return res.status(404).json({ error: 'Sale not found' });
+
+    if (sale.voided_at) {
+      return res.status(400).json({ error: 'Sale has already been voided' });
+    }
+
+    // Void the sale
+    db.run(
+      `UPDATE sales SET voided_at = CURRENT_TIMESTAMP, voided_by = ?, void_reason = ?, payment_status = 'voided' WHERE id = ? AND company_id = ?`,
+      [userId, reason, id, companyId],
+      (err) => {
+        if (err) return res.status(500).json({ error: 'Failed to void sale' });
+
+        // Restore stock for all items
+        db.all('SELECT * FROM sale_items WHERE sale_id = ?', [id], (err, items) => {
+          if (!err && items) {
+            items.forEach(item => {
+              db.run('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ? AND company_id = ?',
+                [item.quantity, item.product_id, companyId]);
+            });
+          }
+        });
+
+        // Forensic audit log
+        logAudit(req, 'VOID', 'sale', id, {
+          metadata: {
+            saleNumber: sale.sale_number,
+            totalAmount: sale.total_amount,
+            reason,
+            originalPaymentMethod: sale.payment_method
+          }
+        });
+
+        // Legacy audit trail
+        db.run(
+          `INSERT INTO audit_trail (company_id, user_id, event_type, event_category, event_data)
+           VALUES (?, ?, ?, ?, ?)`,
+          [companyId, userId, 'sale_voided', 'sales', JSON.stringify({
+            saleId: id, saleNumber: sale.sale_number, totalAmount: sale.total_amount, reason
+          })]
+        );
+
+        res.json({
+          success: true,
+          message: 'Sale voided successfully',
+          saleId: id,
+          saleNumber: sale.sale_number,
+          voidedBy: userId,
+          reason
+        });
+      }
+    );
+  });
+});
+
+// ========== PAYMENT REPORTS ==========
+
+// Get payment method breakdown report
+router.get('/reports/payment-methods', requirePermission('REPORTS.SALES'), (req, res) => {
+  const companyId = req.user.companyId;
+  const { startDate, endDate } = req.query;
+
+  let dateFilter = '';
+  const params = [companyId];
+
+  if (startDate) { dateFilter += ' AND sp.created_at >= ?'; params.push(startDate); }
+  if (endDate) { dateFilter += ' AND sp.created_at <= ?'; params.push(endDate); }
+
+  const query = `
+    SELECT 
+      sp.payment_method,
+      COUNT(*) as transaction_count,
+      SUM(sp.amount) as total_amount,
+      ROUND(AVG(sp.amount), 2) as avg_amount
+    FROM sale_payments sp
+    JOIN sales s ON sp.sale_id = s.id
+    WHERE sp.company_id = ?
+      AND sp.status = 'completed'
+      AND s.voided_at IS NULL
+      ${dateFilter}
+    GROUP BY sp.payment_method
+    ORDER BY total_amount DESC
+  `;
+
+  db.all(query, params, (err, breakdown) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    
+    const total = breakdown.reduce((sum, b) => sum + parseFloat(b.total_amount || 0), 0);
+    
+    res.json({
+      breakdown: breakdown.map(b => ({
+        ...b,
+        total_amount: parseFloat(b.total_amount || 0),
+        avg_amount: parseFloat(b.avg_amount || 0),
+        percentage: total > 0 ? Math.round((parseFloat(b.total_amount || 0) / total) * 10000) / 100 : 0
+      })),
+      grandTotal: total,
+      dateRange: { start: startDate || 'all', end: endDate || 'all' }
+    });
+  });
+});
+
+// Cash-up report for a session
+router.get('/reports/cash-up/:sessionId', requirePermission('REPORTS.SALES'), (req, res) => {
+  const { sessionId } = req.params;
+  const companyId = req.user.companyId;
+
+  // Get session info
+  db.get(`
+    SELECT ts.*, t.till_name, u.full_name as cashier_name
+    FROM till_sessions ts
+    JOIN tills t ON ts.till_id = t.id
+    JOIN users u ON ts.user_id = u.id
+    WHERE ts.id = ? AND ts.company_id = ?
+  `, [sessionId, companyId], (err, session) => {
+    if (err) return res.status(500).json({ error: 'Database error' });
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+
+    // Get all sales in this session
+    db.all(`
+      SELECT s.id, s.sale_number, s.total_amount, s.payment_method, s.voided_at, s.void_reason, s.created_at
+      FROM sales s WHERE s.till_session_id = ? AND s.company_id = ?
+      ORDER BY s.created_at ASC
+    `, [sessionId, companyId], (err, sales) => {
+      if (err) return res.status(500).json({ error: 'Database error' });
+
+      // Get payment breakdown from sale_payments
+      db.all(`
+        SELECT sp.payment_method, SUM(sp.amount) as total
+        FROM sale_payments sp
+        JOIN sales s ON sp.sale_id = s.id
+        WHERE s.till_session_id = ? AND sp.company_id = ? AND s.voided_at IS NULL AND sp.status = 'completed'
+        GROUP BY sp.payment_method
+      `, [sessionId, companyId], (err, paymentBreakdown) => {
+        const activeSales = sales.filter(s => !s.voided_at);
+        const voidedSales = sales.filter(s => s.voided_at);
+        const totalSales = activeSales.reduce((sum, s) => sum + parseFloat(s.total_amount), 0);
+        const expectedCash = parseFloat(session.opening_balance || 0) +
+          (paymentBreakdown || []).filter(p => p.payment_method === 'cash').reduce((sum, p) => sum + parseFloat(p.total), 0);
+
+        res.json({
+          session,
+          summary: {
+            totalSales,
+            saleCount: activeSales.length,
+            voidCount: voidedSales.length,
+            openingBalance: parseFloat(session.opening_balance || 0),
+            expectedCashInDrawer: expectedCash,
+            closingBalance: session.closing_balance ? parseFloat(session.closing_balance) : null,
+            variance: session.variance ? parseFloat(session.variance) : null
+          },
+          paymentBreakdown: (paymentBreakdown || []).map(p => ({
+            method: p.payment_method,
+            total: parseFloat(p.total)
+          })),
+          sales: activeSales,
+          voidedSales
+        });
+      });
+    });
   });
 });
 
